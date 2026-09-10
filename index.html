@@ -392,9 +392,15 @@
                             </div>
                             <div class="flex items-center gap-2">
                                 <input type="number" 
-                                    inputmode="numeric" 
-                                    pattern="[0-9]*" 
+                                    inputmode="decimal" 
+                                    step="any"
                                     data-prod-id="${prod.id}"
+                                    data-min-stock="${prod.minStock}"
+                                    value="${val}" 
+                                    ${isReadOnly ? 'disabled' : ''} 
+                                    oninput="onInputStock(this)"
+                                    placeholder="數量" 
+                                    class="stock-input w-20 px-3 py-1.5 text-right text-sm font-semibold rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500">
                                     data-min-stock="${prod.minStock}"
                                     value="${val}" 
                                     ${isReadOnly ? 'disabled' : ''} 
