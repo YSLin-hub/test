@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>庫存叫貨管理系統</title>
+    <!-- Tailwind CSS & FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (v9 Moduel via compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-20">
+
+    <!-- 頂部標題列 -->
+    <header class="bg-blue-600 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
+        <h1 class="text-lg font-bold flex items-center gap-2">
+            <i class="fas fa-boxes"></i> 庫存叫貨管理
+        </h1>
+        <div class="text-xs bg-blue-700 px-2.5 py-1 rounded-full text-blue-100 font-mono flex items-center gap-1.5" id="syncStatus">
+            <i class="fas fa-spinner fa-spin"></i> 雲端連線中
+        </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="p-4 max-w-md mx-auto">
+        <!-- 頁籤切換 -->
+        <div class="flex border-b border-slate-200 mb-4 bg-white rounded-t-xl shadow-sm overflow-hidden">
+            <button id="tabTodayBtn" onclick="switchTab('today')" class="flex-1 py-3 text-center text-sm tab-active flex justify-center items-center gap-1.5">
+                <i class="fas fa-calendar-day"></i> 今日叫貨
+            </button>
+            <button id="tabSettingsBtn" onclick="switchTab('settings')" class="flex-1 py-3 text-center text-sm text-slate-500 flex justify-center items-center gap-1.5">
+                <i class="fas fa-cog"></i> 廠商設定
+            </button>
+        </div>
+
+        <!-- 頁籤 1: 今日叫貨登記頁 -->
+        <section id="tabToday">
+            <!-- 日期選擇與叫貨卡片 -->
+            <div class="bg-white p-3.5 rounded-xl shadow-sm mb-4 border border-slate-100 space-y-2.5">
+                <!-- 第一行：標題與回到今天 -->
+                <div class="flex justify-between items-center">
+                    <label class="text-xs text-slate-400">選擇查看日期</label>
+                    <div class="flex items-center gap-2">
+                        <button onclick="goToToday()" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md font-medium transition">
+                            回到今天
+                        </button>
+                        <div id="readOnlyBadge" class="hidden px-2 py-0.5 bg-amber-50 text-amber-700 text-[11px] font-medium rounded-md border border-amber-200 flex items-center gap-1">
+                            <i class="fas fa-lock text-amber-500"></i> 唯讀
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 第二行：日期選擇區 -->
+                <div class="flex items-center justify-between bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                    <button onclick="changeDate(-1)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-md transition shadow-xs">
+                        <i class="fas fa-chevron-left text-xs"></i>
+                    </button>
+                    <input type="date" id="targetDate" onchange="loadDateData()" class="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none text-center">
+                    <button onclick="changeDate(1)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-md transition shadow-xs">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- 第三行：搜尋列與叫貨按鈕並排 -->
+                <div class="flex items-center gap-2 pt-0.5">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="searchInput" oninput="searchAndScrollToProduct()" placeholder="搜尋品項名稱..." class="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <button onclick="generateOrderSummary()" class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-xs whitespace-nowrap">
+                    <i class="fas fa-shopping-cart text-xs"></i> 叫貨
+                    </button>
+
+                </div>
+            </div>
+
+            <!-- 新增：叫貨清單對話框 (Modal) -->
+            <div id="orderModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
+                <div class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-emerald-50/50">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fas fa-clipboard-list text-emerald-600"></i> 低於庫存叫貨清單
+                        </h3>
+                        <button onclick="closeOrderModal()" class="text-slate-400 hover:text-slate-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs">
+                        <!-- 動態渲染清單內容 -->
+                    </div>
+                    <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition">
+                            關閉
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 叫貨清單列表 -->
+            <div id="todaySupplierList" class="space-y-4"></div>
+
+            <!-- 手動儲存按鈕 -->
+            <div class="mt-6">
+                <button id="saveBtn" onclick="manualSave()" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition flex justify-center items-center gap-2">
+                    <i class="fas fa-cloud-upload-alt"></i> 儲存至雲端
+                </button>
+            </div>
+        </section>
+
+        <!-- 頁籤 2: 設定頁 -->
+        <section id="tabSettings" class="hidden">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-bold text-slate-600">廠商與商品配置</h2>
+                <button onclick="openSupplierModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg shadow-sm font-medium flex items-center gap-1">
+                    <i class="fas fa-plus"></i> 新增廠商
+                </button>
+            </div>
+            <div id="settingsSupplierList" class="space-y-3"></div>
+        </section>
+    </main>
+
+    <!-- 新增/修改廠商 Modal -->
+    <div id="supplierModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] flex flex-col shadow-xl">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800" id="modalTitle">新增廠商</h3>
+                <button onclick="closeSupplierModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-4 flex-1">
+                <input type="hidden" id="modalSupplierId">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">廠商名稱</label>
+                    <input type="text" id="modalSupplierName" placeholder="請輸入廠商名稱" class="w-full px-3 py-2 text-sm bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">可叫貨星期</label>
+                    <div class="grid grid-cols-7 gap-1" id="modalWeekdays">
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="1" class="mb-1">一</label>
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="2" class="mb-1">二</label>
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="3" class="mb-1">三</label>
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="4" class="mb-1">四</label>
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="5" class="mb-1">五</label>
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="6" class="mb-1">六</label>
+                        <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="0" class="mb-1">日</label>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-xs font-semibold text-slate-600">商品清單與最低庫存</label>
+                        <button type="button" onclick="addModalProductRow('', 1)" class="text-xs text-blue-600 font-medium flex items-center gap-1">
+                            <i class="fas fa-plus-circle"></i> 增加品項
+                        </button>
+                    </div>
+                    <div id="modalProductsContainer" class="space-y-2"></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 flex gap-2">
+                <button onclick="closeSupplierModal()" class="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl">取消</button>
+                <button onclick="saveSupplierConfig()" class="flex-1 py-2.5 text-xs font-semibold text-white bg-blue-600 rounded-xl shadow-sm">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示訊息 -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2">
+        <i class="fas fa-info-circle text-blue-400"></i> <span id="toastMsg">已儲存</span>
+    </div>
+
+    <script>
+        // ★★★ 請在此處替換為您的 Firebase 專案設定金鑰 ★★★
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGhcOptdGe2fCDquFcaB9c8E7WAzvny9k",
+            authDomain: "uuhotpot-83e28.firebaseapp.com",
+            databaseURL: "https://uuhotpot-83e28-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "uuhotpot-83e28",
+            storageBucket: "uuhotpot-83e28.firebasestorage.app",
+            messagingSenderId: "528623847738",
+            appId: "1:528623847738:web:53408e3e555801098a6803",
+			measurementId: "G-TRHQ18M6FZ"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let config = { suppliers: [] };
+        let currentDayLogs = {};
+
+        // 預設資料（當 Firebase 內完全沒有資料時自動匯入）
+        const DEFAULT_SUPPLIERS = [
+            {
+                id: 'sup_a',
+                name: 'A 廠商',
+                days: [1, 3, 5],
+                products: [
+                    { id: 'p_a1', name: '商品 A1', minStock: 5 },
+                    { id: 'p_a2', name: '商品 A2', minStock: 5 },
+                    { id: 'p_a3', name: '商品 A3', minStock: 5 },
+                    { id: 'p_a4', name: '商品 A4', minStock: 5 },
+                    { id: 'p_a5', name: '商品 A5', minStock: 5 },
+                    { id: 'p_a6', name: '商品 A6', minStock: 5 },
+                    { id: 'p_a7', name: '商品 A7', minStock: 5 },
+                    { id: 'p_a8', name: '商品 A8', minStock: 5 },
+                    { id: 'p_a9', name: '商品 A9', minStock: 5 },
+                    { id: 'p_a10', name: '商品 A10', minStock: 5 }
+                ]
+            },
+            {
+                id: 'sup_b',
+                name: 'B 廠商',
+                days: [3, 6],
+                products: [
+                    { id: 'p_b1', name: '商品 B1', minStock: 5 },
+                    { id: 'p_b2', name: '商品 B2', minStock: 5 },
+                    { id: 'p_b3', name: '商品 B3', minStock: 5 },
+                    { id: 'p_b4', name: '商品 B4', minStock: 5 },
+                    { id: 'p_b5', name: '商品 B5', minStock: 5 }
+                ]
+            }
+        ];
+
+        function init() {
+            const todayStr = getTodayString();
+            document.getElementById('targetDate').value = todayStr;
+
+            // 監聽雲端廠商設定更新 (Realtime)
+            db.ref('config').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val && val.suppliers) {
+                    config = val;
+                } else {
+                    config = { suppliers: DEFAULT_SUPPLIERS };
+                    db.ref('config').set(config);
+                }
+                renderTodayView();
+                renderSettingsView();
+                updateSyncStatus(true);
+            });
+
+            // 載入當日資料
+            loadDateData();
+
+            // 每 60 秒背景自動儲存一次當天輸入數值
+            setInterval(autoSaveProcess, 60000);
+        }
+
+        function getTodayString() {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function updateSyncStatus(isSynced) {
+            const statusEl = document.getElementById('syncStatus');
+            if (isSynced) {
+                statusEl.innerHTML = `<i class="fas fa-check-circle text-emerald-300"></i> 已同步`;
+            } else {
+                statusEl.innerHTML = `<i class="fas fa-edit text-amber-300"></i> 編輯中...`;
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2000);
+        }
+
+        function loadDateData() {
+            const dateVal = document.getElementById('targetDate').value;
+            
+            // 監聽雲端當日庫存紀錄
+            db.ref('logs/' + dateVal).on('value', (snapshot) => {
+                currentDayLogs = snapshot.val() || {};
+                renderTodayView();
+            });
+        }
+
+        function manualSave() {
+            collectAndUpload();
+            showToast('已同步至雲端！');
+        }
+
+        function autoSaveProcess() {
+            const dateVal = document.getElementById('targetDate').value;
+            const todayStr = getTodayString();
+            if (dateVal === todayStr) {
+                collectAndUpload();
+            }
+        }
+
+        function collectAndUpload() {
+            const dateVal = document.getElementById('targetDate').value;
+            const inputs = document.querySelectorAll('.stock-input');
+            const updates = {};
+
+            inputs.forEach(input => {
+                const prodId = input.dataset.prodId;
+                updates[prodId] = input.value;
+            });
+
+            db.ref('logs/' + dateVal).update(updates).then(() => {
+                updateSyncStatus(true);
+            });
+        }
+
+        function switchTab(tab) {
+            const todayTab = document.getElementById('tabToday');
+            const settingsTab = document.getElementById('tabSettings');
+            const todayBtn = document.getElementById('tabTodayBtn');
+            const settingsBtn = document.getElementById('tabSettingsBtn');
+
+            if (tab === 'today') {
+                todayTab.classList.remove('hidden');
+                settingsTab.classList.add('hidden');
+                todayBtn.className = 'flex-1 py-3 text-center text-sm tab-active flex justify-center items-center gap-1.5';
+                settingsBtn.className = 'flex-1 py-3 text-center text-sm text-slate-500 flex justify-center items-center gap-1.5';
+                renderTodayView();
+            } else {
+                todayTab.classList.add('hidden');
+                settingsTab.classList.remove('hidden');
+                todayBtn.className = 'flex-1 py-3 text-center text-sm text-slate-500 flex justify-center items-center gap-1.5';
+                settingsBtn.className = 'flex-1 py-3 text-center text-sm tab-active flex justify-center items-center gap-1.5';
+                renderSettingsView();
+            }
+        }
+
+        function renderTodayView() {
+            const dateVal = document.getElementById('targetDate').value;
+            const todayStr = getTodayString();
+            const isReadOnly = dateVal < todayStr;
+
+            const readOnlyBadge = document.getElementById('readOnlyBadge');
+            const saveBtn = document.getElementById('saveBtn');
+
+            if (isReadOnly) {
+                readOnlyBadge.classList.remove('hidden');
+                saveBtn.classList.add('hidden');
+            } else {
+                readOnlyBadge.classList.add('hidden');
+                saveBtn.classList.remove('hidden');
+            }
+
+            const targetDateObj = new Date(dateVal + 'T00:00:00');
+            const dayOfWeek = targetDateObj.getDay();
+
+            const availableSuppliers = (config.suppliers || []).filter(s => s.days && s.days.includes(dayOfWeek));
+            const container = document.getElementById('todaySupplierList');
+            container.innerHTML = '';
+
+            if (availableSuppliers.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fas fa-calendar-times text-4xl mb-2"></i>
+                        <p class="text-sm">本日無可叫貨廠商</p>
+                    </div>`;
+                return;
+            }
+
+            availableSuppliers.forEach(sup => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden';
+
+                let productsHtml = '';
+                (sup.products || []).forEach(prod => {
+                    const val = currentDayLogs[prod.id] !== undefined ? currentDayLogs[prod.id] : '';
+                    
+                    // 核心邏輯：數量小於或等於 (<=) 最低庫存時顯示警示圖示
+                    const isWarn = val !== '' && !isNaN(val) && Number(val) <= prod.minStock;
+
+                    productsHtml += `
+                        <div class="product-item flex items-center justify-between p-3 border-b border-slate-50 last:border-none transition-colors duration-300" data-prod-name="${escapeHtml(prod.name)}">
+                            <div>
+                                <div class="prod-title text-sm font-medium text-slate-700">${escapeHtml(prod.name)}</div>
+                                <div class="text-[10px] text-slate-400">最低庫存: ${prod.minStock}</div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" 
+    inputmode="decimal" 
+    step="any"
+    data-prod-id="${prod.id}"
+    data-min-stock="${prod.minStock}"
+    value="${val}" 
+    ${isReadOnly ? 'disabled' : ''} 
+    oninput="onInputStock(this)"
+    placeholder="數量" 
+    class="stock-input w-20 px-3 py-1.5 text-right text-sm font-semibold rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500">
+                                
+                                <div class="w-6 flex justify-center">
+                                    <span class="warning-icon text-rose-500 text-base ${isWarn ? '' : 'hidden'}" title="低於或等於最低庫存！">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="bg-slate-100/70 px-4 py-2.5 border-b border-slate-100 font-bold text-xs text-slate-600 flex justify-between items-center">
+                        <span><i class="fas fa-store text-blue-500 mr-1.5"></i>${escapeHtml(sup.name)}</span>
+                        <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">${(sup.products || []).length} 項商品</span>
+                    </div>
+                    <div class="divide-y divide-slate-50">
+                        ${productsHtml}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function onInputStock(input) {
+            updateSyncStatus(false);
+            const minStock = Number(input.dataset.minStock);
+            const val = input.value;
+            const warningEl = input.nextElementSibling.querySelector('.warning-icon');
+
+            // 輸入即時判定：<= 最低庫存顯示警告
+            if (val !== '' && !isNaN(val) && Number(val) <= minStock) {
+                warningEl.classList.remove('hidden');
+            } else {
+                warningEl.classList.add('hidden');
+            }
+        }
+
+        function renderSettingsView() {
+            const container = document.getElementById('settingsSupplierList');
+            container.innerHTML = '';
+
+            const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+            if (!config.suppliers || config.suppliers.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">尚無廠商資料</div>`;
+                return;
+            }
+
+            config.suppliers.forEach((sup, idx) => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-3.5 rounded-xl shadow-sm border border-slate-100';
+
+                const daysStr = (sup.days || []).map(d => dayNames[d]).join('、');
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <div class="font-bold text-sm text-slate-800">${escapeHtml(sup.name)}</div>
+                            <div class="text-xs text-blue-600 mt-0.5"><i class="far fa-calendar-alt mr-1"></i>每週 ${daysStr} 叫貨</div>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="moveSupplier(${idx}, -1)" class="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-20" ${idx === 0 ? 'disabled' : ''} title="上移">
+                                <i class="fas fa-arrow-up text-xs"></i>
+                            </button>
+                            <button onclick="moveSupplier(${idx}, 1)" class="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-20" ${idx === config.suppliers.length - 1 ? 'disabled' : ''} title="下移">
+                                <i class="fas fa-arrow-down text-xs"></i>
+                            </button>
+                            <button onclick="editSupplier('${sup.id}')" class="text-slate-400 hover:text-blue-600 p-1 ml-1" title="編輯">
+                                <i class="fas fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="deleteSupplier('${sup.id}')" class="text-slate-400 hover:text-rose-600 p-1" title="刪除">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
+                        品項 (${(sup.products || []).length}): ${(sup.products || []).map(p => escapeHtml(p.name)).join('、')}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function moveSupplier(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= config.suppliers.length) return;
+            
+            // 交換位置
+            const temp = config.suppliers[index];
+            config.suppliers[index] = config.suppliers[newIndex];
+            config.suppliers[newIndex] = temp;
+
+            // 同步至 Firebase
+            db.ref('config').set(config).then(() => {
+                showToast('廠商順序已更新');
+            });
+        }
+
+        function openSupplierModal(supplierId = null) {
+            const modal = document.getElementById('supplierModal');
+            const title = document.getElementById('modalTitle');
+            const container = document.getElementById('modalProductsContainer');
+            
+            document.getElementById('modalSupplierId').value = supplierId || '';
+            document.getElementById('modalSupplierName').value = '';
+            
+            const checkboxes = document.querySelectorAll('#modalWeekdays input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+
+            container.innerHTML = '';
+
+            if (supplierId) {
+                title.innerText = '編輯廠商';
+                const sup = config.suppliers.find(s => s.id === supplierId);
+                if (sup) {
+                    document.getElementById('modalSupplierName').value = sup.name;
+                    checkboxes.forEach(cb => {
+                        if (sup.days && sup.days.includes(Number(cb.value))) cb.checked = true;
+                    });
+                    (sup.products || []).forEach(p => addModalProductRow(p.name, p.minStock));
+                }
+            } else {
+                title.innerText = '新增廠商';
+                addModalProductRow('', 1);
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeSupplierModal() {
+            document.getElementById('supplierModal').classList.add('hidden');
+        }
+
+        function addModalProductRow(name = '', minStock = 1) {
+            const container = document.getElementById('modalProductsContainer');
+            const row = document.createElement('div');
+            row.className = 'product-row flex items-center space-x-1.5';
+            row.innerHTML = `
+                <div class="flex flex-col">
+                    <button type="button" onclick="moveProductRow(this, -1)" class="text-slate-300 hover:text-blue-600 leading-none p-0.5"><i class="fas fa-chevron-up text-[10px]"></i></button>
+                    <button type="button" onclick="moveProductRow(this, 1)" class="text-slate-300 hover:text-blue-600 leading-none p-0.5"><i class="fas fa-chevron-down text-[10px]"></i></button>
+                </div>
+                <input type="text" placeholder="商品名稱" value="${escapeHtml(name)}" class="prod-name flex-1 px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500">
+                <div class="flex items-center space-x-1">
+                    <span class="text-[10px] text-slate-400">最低:</span>
+                    <input type="number" min="0" placeholder="0" value="${minStock}" class="prod-min w-16 px-2 py-2 text-xs font-semibold text-center bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+                <button type="button" onclick="this.parentElement.remove()" class="p-1 text-slate-400 hover:text-rose-500">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        function moveProductRow(btn, direction) {
+            const row = btn.closest('.product-row');
+            if (direction === -1 && row.previousElementSibling) {
+                row.parentNode.insertBefore(row, row.previousElementSibling);
+            } else if (direction === 1 && row.nextElementSibling) {
+                row.parentNode.insertBefore(row.nextElementSibling, row);
+            }
+        }
+
+        function saveSupplierConfig() {
+            const id = document.getElementById('modalSupplierId').value;
+            const name = document.getElementById('modalSupplierName').value.trim();
+            
+            if (!name) {
+                alert('請輸入廠商名稱');
+                return;
+            }
+
+            const days = [];
+            document.querySelectorAll('#modalWeekdays input[type="checkbox"]:checked').forEach(cb => {
+                days.push(Number(cb.value));
+            });
+
+            if (days.length === 0) {
+                alert('請至少選擇一天可叫貨星期');
+                return;
+            }
+
+            const products = [];
+            const rows = document.querySelectorAll('#modalProductsContainer .product-row');
+            rows.forEach((row, idx) => {
+                const pName = row.querySelector('.prod-name').value.trim();
+                const pMin = row.querySelector('.prod-min').value;
+                if (pName) {
+                    products.push({
+                        id: id ? (config.suppliers.find(s => s.id === id)?.products[idx]?.id || 'p_' + Date.now() + '_' + idx) : 'p_' + Date.now() + '_' + idx,
+                        name: pName,
+                        minStock: pMin !== '' ? Number(pMin) : 0
+                    });
+                }
+            });
+
+            if (products.length === 0) {
+                alert('請至少新增一項商品');
+                return;
+            }
+
+            if (!config.suppliers) config.suppliers = [];
+
+            if (id) {
+                const index = config.suppliers.findIndex(s => s.id === id);
+                if (index !== -1) {
+                    config.suppliers[index] = { id, name, days, products };
+                }
+            } else {
+                config.suppliers.push({
+                    id: 'sup_' + Date.now(),
+                    name,
+                    days,
+                    products
+                });
+            }
+
+            // 同步寫入 Firebase 雲端
+            db.ref('config').set(config).then(() => {
+                closeSupplierModal();
+                showToast('雲端廠商設定已儲存');
+            });
+        }
+
+        function editSupplier(id) {
+            openSupplierModal(id);
+        }
+
+        function deleteSupplier(id) {
+            if (confirm('確定要刪除此廠商及其所有商品設定嗎？')) {
+                config.suppliers = config.suppliers.filter(s => s.id !== id);
+                db.ref('config').set(config).then(() => {
+                    showToast('已刪除廠商');
+                });
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        window.onload = init;
+		
+		function changeDate(days) {
+            const dateInput = document.getElementById('targetDate');
+            const currentDate = new Date(dateInput.value + 'T00:00:00');
+            currentDate.setDate(currentDate.getDate() + days);
+            
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            
+            dateInput.value = `${year}-${month}-${day}`;
+            loadDateData();
+        }
+
+        function goToToday() {
+            document.getElementById('targetDate').value = getTodayString();
+            loadDateData();
+        }
+		
+		
+    
+    // 關閉叫貨彈窗
+    function closeOrderModal() {
+        const modal = document.getElementById('orderModal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    // 叫貨清單彙整邏輯 (修正資料庫對應與 ID 比對)
+    function generateOrderSummary() {
+        const container = document.getElementById('orderModalContent');
+        if (!container) return;
+        container.innerHTML = '';
+
+        let hasItemsToOrder = false;
+
+        if (typeof config !== 'undefined' && config.suppliers) {
+            config.suppliers.forEach(sup => {
+                const lowStockProducts = [];
+
+                (sup.products || []).forEach(prod => {
+                    let stockVal = null;
+
+                    // 1. 優先從 DOM 上的 input (以 prod.id 查找)
+                    const input = document.querySelector(`input[data-prod-id="${prod.id}"]`);
+                    if (input && input.value !== '') {
+                        stockVal = input.value;
+                    } else if (typeof currentDayLogs !== 'undefined' && currentDayLogs[prod.id] !== undefined) {
+                        // 2. DOM 抓不到時，直接從系統的 currentDayLogs 變數讀取
+                        stockVal = currentDayLogs[prod.id];
+                    }
+
+                    // 判斷條件：只要有輸入數值（含 0），且 <= 最低庫存
+                    if (stockVal !== null && stockVal !== undefined && stockVal.toString().trim() !== '') {
+                        const currentNum = Number(stockVal);
+                        const minNum = Number(prod.minStock);
+
+                        if (!isNaN(currentNum) && currentNum <= minNum) {
+                            lowStockProducts.push({
+                                name: prod.name,
+                                current: currentNum,
+                                min: minNum
+                            });
+                        }
+                    }
+                });
+
+                if (lowStockProducts.length > 0) {
+                    hasItemsToOrder = true;
+                    const groupEl = document.createElement('div');
+                    groupEl.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200/80 mb-3';
+
+                    let itemsHtml = lowStockProducts.map(p => `
+                        <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                            <span class="font-medium text-slate-700">${escapeHtml(p.name)}</span>
+                            <div class="text-right">
+                                <span class="text-rose-600 font-bold">目前: ${p.current}</span>
+                                <span class="text-slate-400 text-[10px] ml-1">(最低: ${p.min})</span>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    groupEl.innerHTML = `
+                        <div class="font-bold text-slate-800 mb-2 pb-1 border-b border-slate-200 flex items-center justify-between">
+                            <span><i class="fas fa-store text-emerald-600 mr-1.5"></i>${escapeHtml(sup.name)}</span>
+                            <span class="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full font-normal">${lowStockProducts.length} 項需叫貨</span>
+                        </div>
+                        <div class="space-y-0.5">${itemsHtml}</div>
+                    `;
+                    container.appendChild(groupEl);
+                }
+            });
+        }
+
+        if (!hasItemsToOrder) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-slate-400">
+                    <i class="fas fa-check-circle text-emerald-500 text-3xl mb-2 block"></i>
+                    目前沒有低於最低庫存的商品，無需叫貨！
+                </div>
+            `;
+        }
+
+        const modal = document.getElementById('orderModal');
+        if (modal) modal.classList.remove('hidden');
+    }
+	
+	// 品項搜尋與平滑滾動定位
+        function searchAndScrollToProduct() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const items = document.querySelectorAll('.product-item');
+
+            // 先清除所有高亮
+            items.forEach(item => item.classList.remove('bg-amber-100', 'bg-amber-50'));
+
+            if (!query) return;
+
+            let found = false;
+            items.forEach(item => {
+                const name = (item.dataset.prodName || '').toLowerCase();
+                if (!found && name.includes(query)) {
+                    found = true;
+                    // 高亮顯示該品項
+                    item.classList.add('bg-amber-100');
+
+                    // 計算頂部 Header 與日期區塊的遮擋高度，進行平滑跳轉
+                    const yOffset = -140; 
+                    const y = item.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+
+                    // 聚焦該品項的輸入框
+                    const input = item.querySelector('input');
+                    if (input) input.focus();
+                }
+            });
+        }
+	</script>
+</body>
+</html>
