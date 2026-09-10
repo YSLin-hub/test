@@ -608,7 +608,7 @@
         }
 
         // 動態增加 Modal 中的商品輸入列
-        function addModalProductRow(name = '', minStock = 5) {
+        function addModalProductRow(name = '', minStock = 0.5) {
             const container = document.getElementById('modal-products-container');
             const row = document.createElement('div');
             row.className = 'product-row flex items-center space-x-2';
