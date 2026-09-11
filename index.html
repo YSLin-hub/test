@@ -1726,47 +1726,58 @@
 function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
-    const text = container.innerText;
+    
+    // 取得原始文字
+    const rawText = container.innerText;
+    
+    // 進行格式轉換
+    const formattedText = formatOrderText(rawText);
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
+        navigator.clipboard.writeText(formattedText).then(() => {
             alert('已成功複製叫貨清單！');
         }).catch(err => {
             console.error('複製失敗，嘗試備用方法', err);
-            fallbackCopyText(text);
+            fallbackCopyText(formattedText);
         });
     } else {
-        fallbackCopyText(text);
+        fallbackCopyText(formattedText);
     }
 }
 
-// 備用複製方法（相容舊版瀏覽器）
-function fallbackCopyText(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    // 避免畫面捲動
-    textArea.style.position = "fixed";
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    textArea.style.opacity = "0";
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            alert('已成功複製叫貨清單！');
-        } else {
-            alert('複製失敗，請手動複製。');
+// 輔助函式：將文字轉換成指定格式
+function formatOrderText(text) {
+    const lines = text.split('\n');
+    let result = [];
+    let currentItem = '';
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+
+        // 略過標題與不需要的資訊
+        if (line.includes('項需叫貨') || line.includes('目前:')) {
+            if (line.includes('目前:')) {
+                // 擷取目前的數量數字（例如：目前: 0.5 (最低: 1) -> 0.5）
+                let match = line.match(/目前:\s*([^\s(]+)/);
+                if (match && currentItem) {
+                    result.push(`${currentItem} 目前: ${match[1]}`);
+                    currentItem = '';
+                }
+            }
+            continue;
         }
-    } catch (err) {
-        console.error('無法使用備用方法複製', err);
-        alert('複製失敗，請手動複製。');
+
+        // 判斷是否為項目名稱（如果下一行是「目前:」，代表這行是品名）
+        if (i + 1 < lines.length && lines[i + 1].includes('目前:')) {
+            currentItem = line;
+        } else {
+            // 如果剛好是獨立的標題（如「菜商」）則直接保留
+            result.push(line);
+        }
     }
-    
-    document.body.removeChild(textArea);
+
+    return result.join('\n');
 }
     </script>
 </body>
