@@ -1737,6 +1737,7 @@ function copyOrderText() {
     }
 
     let copyText = "【低於庫存叫貨清單】\n";
+    // 抓取每個廠商的區塊（請依實際外層區塊調整，若原本是 .bg-slate-50 則維持）
     const groups = container.querySelectorAll('.bg-slate-50');
 
     groups.forEach(group => {
@@ -1745,16 +1746,27 @@ function copyOrderText() {
             const storeName = storeNameEl.innerText.split('(')[0].trim();
             copyText += `\n📌 ${storeName}\n`;
 
-            const items = group.querySelectorAll('.space-y-0.5 > div');
+            // 改用較具容錯性的選擇器，只要是清單內的商品列即可
+            const items = group.querySelectorAll('.product-item, div.flex.items-center.justify-between');
+            
             items.forEach(item => {
-                const nameEl = item.querySelector('.font-medium');
-                // 取得目前庫存數值（只抓取數字，不帶入「最低: X」的文字）
-                const currentStockEl = item.querySelector('.text-rose-600');
+                // 抓取商品名稱與庫存文字
+                const nameEl = item.querySelector('.font-medium') || item.querySelector('span:first-child');
+                // 找尋包含庫存數值的元素（通常帶有顏色或在右側）
+                const stockEl = item.querySelector('.text-rose-600') || item.querySelector('.text-right span') || item.lastElementChild;
                 
-                if (nameEl && currentStockEl) {
+                if (nameEl && stockEl) {
                     const prodName = nameEl.innerText.trim();
-                    const stockNum = currentStockEl.innerText.replace('目前:', '').trim();
-                    copyText += ` - ${prodName}：${stockNum}\n`;
+                    // 清理文字，只保留純數字或需要的庫存量
+                    let stockNum = stockEl.innerText.trim();
+                    if (stockNum.includes('目前:')) {
+                        stockNum = stockNum.replace('目前:', '').trim();
+                    }
+                    
+                    // 避免抓到廠商標題本身
+                    if (prodName !== storeName && !prodName.includes('【')) {
+                        copyText += ` - ${prodName}：${stockNum}\n`;
+                    }
                 }
             });
         }
