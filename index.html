@@ -43,7 +43,7 @@
                 <i class="fas fa-calculator"></i> 帳務管理
             </button>
             <button id="tabSettingsBtn" onclick="switchTab('settings')" class="flex-1 py-3 text-center text-xs sm:text-sm text-slate-500 flex justify-center items-center gap-1">
-                <i class="fas fa-cog"></i> 設定頁
+                <i class="fas fa-cog"></i> 設定
             </button>
         </div>
 
@@ -597,9 +597,9 @@
         function updateAuthUI() {
             const settingsTabBtn = document.getElementById('tabSettingsBtn');
             if (currentUser && !currentUser.isAnonymous) {
-                settingsTabBtn.innerHTML = `<i class="fas fa-cog text-blue-600"></i> 廠商設定 <span class="text-[10px] text-emerald-600 font-normal">(已登入/登出)</span>`;
+                settingsTabBtn.innerHTML = `<i class="fas fa-cog text-blue-600"></i> 設定 <span class="text-[10px] text-emerald-600 font-normal">(已登入/登出)</span>`;
             } else {
-                settingsTabBtn.innerHTML = `<i class="fas fa-lock"></i> 廠商設定`;
+                settingsTabBtn.innerHTML = `<i class="fas fa-lock"></i> 設定`;
             }
         }
 
@@ -1583,7 +1583,7 @@
 
             db.ref('config').set(config).then(() => {
                 closeSupplierModal();
-                showToast('雲端廠商設定已儲存');
+                showToast('雲端設定已儲存');
             });
         }
 
