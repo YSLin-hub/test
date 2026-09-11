@@ -1745,7 +1745,8 @@ function copyOrderText() {
     }
 }
 
-// 輔助函式：將文字轉換成指定格式
+
+// 輔助函式：將文字轉換成指定格式（廠商之間多空一行）
 function formatOrderText(text) {
     const lines = text.split('\n');
     let result = [];
@@ -1758,7 +1759,6 @@ function formatOrderText(text) {
         // 略過標題與不需要的資訊
         if (line.includes('項需叫貨') || line.includes('目前:')) {
             if (line.includes('目前:')) {
-                // 擷取目前的數量數字（例如：目前: 0.5 (最低: 1) -> 0.5）
                 let match = line.match(/目前:\s*([^\s(]+)/);
                 if (match && currentItem) {
                     result.push(`${currentItem} 目前: ${match[1]}`);
@@ -1772,8 +1772,12 @@ function formatOrderText(text) {
         if (i + 1 < lines.length && lines[i + 1].includes('目前:')) {
             currentItem = line;
         } else {
-            // 如果剛好是獨立的標題（如「菜商」）則直接保留
-            result.push(line);
+            // 如果這是新的廠商標題，且前面已經有資料，就先塞入一個空行
+            if (result.length > 0) {
+                result.push('');
+            }
+            // 加上 📌 與廠商名稱
+            result.push('📌 ' + line);
         }
     }
 
