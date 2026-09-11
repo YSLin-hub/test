@@ -1747,7 +1747,7 @@ function copyOrderText() {
             copyText += `\n📌 ${storeName}\n`;
 
             // 改用較具容錯性的選擇器，只要是清單內的商品列即可
-            const items = group.querySelectorAll('.space-y-0.5 > div');
+            const items = group.querySelectorAll('[class*="space-y"] > div');
             items.forEach(item => {
                 const nameEl = item.querySelector('.font-medium');
                 const currentStockEl = item.querySelector('.text-rose-600');
