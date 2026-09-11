@@ -1026,81 +1026,139 @@ function openAccSummaryModal() {
 }
 
 function exportAccSummaryImage() {
-    const modalElement = document.querySelector('#accSummaryModal > div');
-    if (!modalElement) return;
-
     showToast('正在產生完整圖片，請稍候...');
 
-    // 1. 建立一個絕對定位、完全展開的隱形複製容器，確保所有內容與樣式完美保留
-    const cloneContainer = document.createElement('div');
-    cloneContainer.style.position = 'absolute';
-    cloneContainer.style.left = '-9999px';
-    cloneContainer.style.top = '0';
-    cloneContainer.style.width = modalElement.offsetWidth + 'px';
-    cloneContainer.style.backgroundColor = '#ffffff';
-    cloneContainer.style.padding = '20px';
-    cloneContainer.style.boxSizing = 'border-box';
+    // 1. 抓取目前畫面上各個欄位的值
+    const dateVal = document.getElementById('accTargetDate').value || 'acc';
+    
+    // 2. 動態建立一個專門用來轉成圖片的隱藏容器（寬度固定 600px，高度自動延展）
+    const exportBox = document.createElement('div');
+    exportBox.style.position = 'absolute';
+    exportBox.style.left = '-9999px';
+    exportBox.style.top = '0';
+    exportBox.style.width = '600px';
+    exportBox.style.backgroundColor = '#ffffff';
+    exportBox.style.padding = '24px';
+    exportBox.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+    exportBox.style.boxSizing = 'border-box';
+    exportBox.style.color = '#1e293b';
 
-    // 複製 Modal 內容
-    const cloneContent = modalElement.cloneNode(true);
+    // 3. 組裝完整的 HTML 內容（包含所有早班、晚班、整日、出納與備註）
+    exportBox.innerHTML = `
+        <div style="font-size: 20px; font-weight: bold; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
+            <span>🟡</span> <span>${dateVal} 帳務總覽</span>
+        </div>
 
-    // 移除複製內容中的底部按鈕與關閉按鈕
-    const footer = cloneContent.querySelector('.border-t');
-    if (footer) footer.remove();
-    const closeBtn = cloneContent.querySelector('button.absolute, .fa-times')?.closest('button');
-    if (closeBtn) closeBtn.remove();
+        <div style="background-color: #fffbeb; padding: 16px; border-radius: 12px; border: 1px solid #fde68a; margin-bottom: 12px;">
+            <div style="font-weight: bold; color: #92400e; border-bottom: 1px solid #fde68a; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span>早班結帳</span>
+                <span>回收現金: $${getVal('am_cash')}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
+                <div>營收: <span style="font-weight: 600;">$${getVal('am_rev')}</span></div>
+                <div>行動支付: <span style="font-weight: 600;">$${getVal('am_pay')}</span></div>
+                <div>餐卷: <span style="font-weight: 600;">$${getVal('am_ticket')}</span></div>
+                <div>賣餐卷: <span style="font-weight: 600;">$${getVal('am_sell_ticket')}</span></div>
+                <div>支出: <span style="font-weight: 600; color: #e11d48;">$${getVal('am_exp')}</span></div>
+                <div>剩餘餐卷: <span style="font-weight: 600;">${getVal('am_rest_ticket')} 本</span></div>
+                <div style="grid-column: span 2; color: #64748b; font-size: 12px; margin-top: 4px;">支出說明: ${escapeHtml(getStr('am_exp_note'))}</div>
+            </div>
+        </div>
 
-    // 將內部捲動容器的高度限制解除，讓所有內容垂直撐開
-    const innerScroll = cloneContent.querySelector('.max-h-\\[75vh\\]') || cloneContent.querySelector('[class*="overflow-y"]');
-    if (innerScroll) {
-        innerScroll.style.maxHeight = 'none';
-        innerScroll.style.overflow = 'visible';
-    }
+        <div style="background-color: #eef2ff; padding: 16px; border-radius: 12px; border: 1px solid #c7d2fe; margin-bottom: 12px;">
+            <div style="font-weight: bold; color: #3730a3; border-bottom: 1px solid #c7d2fe; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span>晚班結帳</span>
+                <span>回收現金: $${getVal('pm_cash')}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
+                <div>營收: <span style="font-weight: 600;">$${getVal('pm_rev')}</span></div>
+                <div>行動支付: <span style="font-weight: 600;">$${getVal('pm_pay')}</span></div>
+                <div>餐卷: <span style="font-weight: 600;">$${getVal('pm_ticket')}</span></div>
+                <div>賣餐卷: <span style="font-weight: 600;">$${getVal('pm_sell_ticket')}</span></div>
+                <div>支出: <span style="font-weight: 600; color: #e11d48;">$${getVal('pm_exp')}</span></div>
+                <div>剩餘餐卷: <span style="font-weight: 600;">${getVal('pm_rest_ticket')} 本</span></div>
+                <div style="grid-column: span 2; color: #64748b; font-size: 12px; margin-top: 4px;">支出說明: ${escapeHtml(getStr('pm_exp_note'))}</div>
+            </div>
+        </div>
 
-    cloneContainer.appendChild(cloneContent);
-    document.body.appendChild(cloneContainer);
+        <div style="background-color: #eff6ff; padding: 16px; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 12px;">
+            <div style="font-weight: bold; color: #1e40af; border-bottom: 1px solid #bfdbfe; padding-bottom: 6px; margin-bottom: 8px;">
+                整日結算
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
+                <div>總營收: <span style="font-weight: 600;">$${getVal('day_rev')}</span></div>
+                <div>總行動支付: <span style="font-weight: 600;">$${getVal('day_pay')}</span></div>
+                <div>總餐卷: <span style="font-weight: 600;">$${getVal('day_ticket')}</span></div>
+                <div>總賣餐卷: <span style="font-weight: 600;">$${getVal('day_sell_ticket')}</span></div>
+                <div>總支出: <span style="font-weight: 600; color: #e11d48;">$${getVal('day_exp')}</span></div>
+                <div>總回收現金: <span style="font-weight: 600;">$${getVal('day_cash')}</span></div>
+                <div style="grid-column: span 2; margin-top: 4px;">農產收入: <span style="font-weight: 600; color: #047857;">$${getVal('day_farm')}</span></div>
+            </div>
+        </div>
 
-    // 2. 對這個完全展開的複製體進行 html2canvas 截圖
-    html2canvas(cloneContainer, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        windowWidth: cloneContainer.scrollWidth,
-        windowHeight: cloneContainer.scrollHeight
-    }).then(canvas => {
-        // 移除暫時的複製容器
-        document.body.removeChild(cloneContainer);
+        <div style="background-color: #ecfdf5; padding: 16px; border-radius: 12px; border: 1px solid #a7f3d0; margin-bottom: 12px;">
+            <div style="font-weight: bold; color: #065f46; border-bottom: 1px solid #a7f3d0; padding-bottom: 6px; margin-bottom: 8px;">
+                出納與存入總計
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
+                <div>回收總現金: <span style="font-weight: 600;">$${getVal('stmt_total_cash')}</span></div>
+                <div>前一日餘額: <span style="font-weight: 600;">$${getVal('stmt_prev_bal')}</span></div>
+                <div>廠商預留金: <span style="font-weight: 600; color: #d97706;">$${getVal('stmt_reserve')}</span></div>
+                <div>存入金額: <span style="font-weight: bold; color: #047857;">$${getVal('stmt_deposit')}</span></div>
+                <div style="grid-column: span 2; padding-top: 6px; border-top: 1px solid #a7f3d0; font-weight: bold; color: #1e293b;">
+                    明日帶入餘額: <span style="color: #d97706;">$${getVal('stmt_balance')}</span>
+                </div>
+            </div>
+        </div>
 
-        const dateVal = document.getElementById('accTargetDate').value || 'acc';
-        const filename = `${dateVal}-帳務總覽.png`;
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <div style="font-weight: bold; color: #334155; margin-bottom: 6px;">帳務備註</div>
+            <div style="color: #475569; font-size: 14px; white-space: pre-wrap;">${escapeHtml(getStr('acc_remark'))}</div>
+        </div>
+    `;
 
-        // 3. 支援手機與電腦的通用下載 (Blob)
-        if (canvas.toBlob) {
-            canvas.toBlob(blob => {
-                const url = URL.createObjectURL(blob);
+    document.body.appendChild(exportBox);
+
+    // 4. 進行高畫質截圖
+    setTimeout(() => {
+        html2canvas(exportBox, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            windowWidth: 600,
+            windowHeight: exportBox.scrollHeight
+        }).then(canvas => {
+            document.body.removeChild(exportBox);
+            const filename = `${dateVal}-帳務總覽.png`;
+
+            // 5. 跨平台下載（同時支援手機與電腦）
+            if (canvas.toBlob) {
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    showToast('圖片已成功下載！');
+                }, 'image/png');
+            } else {
                 const link = document.createElement('a');
-                link.href = url;
                 link.download = filename;
-                document.body.appendChild(link);
+                link.href = canvas.toDataURL('image/png');
                 link.click();
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
                 showToast('圖片已成功下載！');
-            }, 'image/png');
-        } else {
-            const link = document.createElement('a');
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            showToast('圖片已成功下載！');
-        }
-    }).catch(err => {
-        console.error('產生圖片失敗:', err);
-        if (document.body.contains(cloneContainer)) {
-            document.body.removeChild(cloneContainer);
-        }
-        showToast('產生圖片失敗，請稍後再試');
-    });
+            }
+        }).catch(err => {
+            console.error('產生圖片失敗:', err);
+            if (document.body.contains(exportBox)) {
+                document.body.removeChild(exportBox);
+            }
+            showToast('產生圖片失敗，請稍後再試');
+        });
+    }, 100);
 }
 
 function closeAccSummaryModal() {
