@@ -43,7 +43,7 @@
                 <i class="fas fa-calculator"></i> 帳務管理
             </button>
             <button id="tabSettingsBtn" onclick="switchTab('settings')" class="flex-1 py-3 text-center text-xs sm:text-sm text-slate-500 flex justify-center items-center gap-1">
-                <i class="fas fa-cog"></i> 廠商設定
+                <i class="fas fa-cog"></i> 設定頁
             </button>
         </div>
 
@@ -157,9 +157,14 @@
 
             <!-- 早班卡片 -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                <h3 class="font-bold text-sm text-amber-600 mb-3 flex items-center gap-1.5 border-b pb-2 border-slate-100">
-                    <i class="fas fa-sun"></i> 早班結帳
-                </h3>
+                <div class="flex justify-between items-center mb-3 border-b pb-2 border-slate-100">
+                    <h3 class="font-bold text-sm text-amber-600 flex items-center gap-1.5">
+                        <i class="fas fa-sun"></i> 早班結帳
+                    </h3>
+                    <select id="am_operator" onchange="updateSyncStatus(false)" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-medium text-slate-700 focus:outline-none focus:border-blue-500">
+                        <option value="">選擇經辦</option>
+                    </select>
+                </div>
                 <div class="grid grid-cols-2 gap-3 text-xs">
                     <div>
                         <label class="text-slate-500 block mb-1">營收</label>
@@ -198,9 +203,14 @@
 
             <!-- 晚班卡片 -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                <h3 class="font-bold text-sm text-indigo-600 mb-3 flex items-center gap-1.5 border-b pb-2 border-slate-100">
-                    <i class="fas fa-moon"></i> 晚班結帳
-                </h3>
+                <div class="flex justify-between items-center mb-3 border-b pb-2 border-slate-100">
+                    <h3 class="font-bold text-sm text-indigo-600 flex items-center gap-1.5">
+                        <i class="fas fa-moon"></i> 晚班結帳
+                    </h3>
+                    <select id="pm_operator" onchange="updateSyncStatus(false)" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-medium text-slate-700 focus:outline-none focus:border-blue-500">
+                        <option value="">選擇經辦</option>
+                    </select>
+                </div>
                 <div class="grid grid-cols-2 gap-3 text-xs">
                     <div>
                         <label class="text-slate-500 block mb-1">營收</label>
@@ -354,15 +364,49 @@
         </div>
 
         <!-- 頁籤 3: 設定頁 -->
-        <section id="tabSettings" class="hidden">
-            <div class="flex justify-between items-center mb-3">
-                <h2 class="text-sm font-bold text-slate-600">廠商與商品配置</h2>
-                <button onclick="openSupplierModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg shadow-sm font-medium flex items-center gap-1">
-                    <i class="fas fa-plus"></i> 新增廠商
-                </button>
+        <section id="tabSettings" class="hidden space-y-6">
+            <!-- 經辦人員設定區塊 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                        <i class="fas fa-user-tie text-blue-600"></i> 經辦人員設定
+                    </h2>
+                    <button onclick="openOperatorModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg shadow-sm font-medium flex items-center gap-1">
+                        <i class="fas fa-plus"></i> 新增經辦
+                    </button>
+                </div>
+                <div id="settingsOperatorList" class="space-y-2"></div>
             </div>
-            <div id="settingsSupplierList" class="space-y-3"></div>
+
+            <!-- 廠商與商品配置區塊 -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-slate-600">廠商與商品配置</h2>
+                    <button onclick="openSupplierModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg shadow-sm font-medium flex items-center gap-1">
+                        <i class="fas fa-plus"></i> 新增廠商
+                    </button>
+                </div>
+                <div id="settingsSupplierList" class="space-y-3"></div>
+            </div>
         </section>
+
+        <!-- 新增經辦人員 Modal -->
+        <div id="operatorModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h3 class="font-bold text-slate-800 text-base">新增經辦人員</h3>
+                    <button onclick="closeOperatorModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">人員姓名</label>
+                    <input type="text" id="modalOperatorName" placeholder="請輸入姓名" class="w-full px-3 py-2 text-sm bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="closeOperatorModal()" class="flex-1 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl">取消</button>
+                    <button onclick="saveOperatorConfig()" class="flex-1 py-2 text-xs font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700">儲存</button>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- 新增/修改廠商 Modal -->
@@ -462,7 +506,7 @@ const auth = firebase.auth();
 let currentUser = null;
 let isDbInitialized = false;
 
-let config = { suppliers: [] };
+let config = { suppliers: [], operators: [] };
 let currentDayLogs = {};
 let currentAccData = {};
 let currentTab = 'today';
@@ -480,6 +524,11 @@ const DEFAULT_SUPPLIERS = [
             { id: 'p_a2', name: '商品 A2', minStock: 5 }
         ]
     }
+];
+
+const DEFAULT_OPERATORS = [
+    { id: 'op_1', name: '經辦一' },
+    { id: 'op_2', name: '經辦二' }
 ];
 
 auth.onAuthStateChanged(user => {
@@ -509,16 +558,18 @@ function init() {
 function setupDatabaseListeners() {
     db.ref('config').on('value', (snapshot) => {
         const val = snapshot.val();
-        if (val && val.suppliers) {
-            config = val;
+        if (val) {
+            config.suppliers = val.suppliers || DEFAULT_SUPPLIERS;
+            config.operators = val.operators || DEFAULT_OPERATORS;
         } else {
-            config = { suppliers: DEFAULT_SUPPLIERS };
+            config = { suppliers: DEFAULT_SUPPLIERS, operators: DEFAULT_OPERATORS };
             if (auth.currentUser && !auth.currentUser.isAnonymous) {
                 db.ref('config').set(config);
             }
         }
         renderTodayView();
         renderSettingsView();
+        renderOperatorDropdowns();
         updateSyncStatus(true);
     });
 
@@ -620,7 +671,6 @@ function showToast(msg) {
 function loadDateData() {
     const dateVal = document.getElementById('targetDate').value;
     
-    // 取消之前的資料監聽，避免混亂
     if (currentLogsRef) {
         currentLogsRef.off();
     }
@@ -775,6 +825,26 @@ function onInputStock(input) {
 }
 
 // ================= 帳務頁面邏輯 =================
+function renderOperatorDropdowns() {
+    const amSelect = document.getElementById('am_operator');
+    const pmSelect = document.getElementById('pm_operator');
+    if (!amSelect || !pmSelect) return;
+
+    const currentAm = amSelect.value;
+    const currentPm = pmSelect.value;
+
+    let optionsHtml = '<option value="">選擇經辦</option>';
+    (config.operators || []).forEach(op => {
+        optionsHtml += `<option value="${escapeHtml(op.name)}">${escapeHtml(op.name)}</option>`;
+    });
+
+    amSelect.innerHTML = optionsHtml;
+    pmSelect.innerHTML = optionsHtml;
+
+    if (currentAm) amSelect.value = currentAm;
+    if (currentPm) pmSelect.value = currentPm;
+}
+
 function changeAccDate(days) {
     const dateInput = document.getElementById('accTargetDate');
     const currentDate = new Date(dateInput.value + 'T00:00:00+08:00');
@@ -822,7 +892,7 @@ function loadAccountingData() {
             calcAccounting();
         }
 
-        const accInputs = document.querySelectorAll('#tabAccounting input, #tabAccounting textarea');
+        const accInputs = document.querySelectorAll('#tabAccounting input, #tabAccounting textarea, #tabAccounting select');
         accInputs.forEach(input => {
             if (!input.readOnly) {
                 input.disabled = isReadOnly;
@@ -833,8 +903,8 @@ function loadAccountingData() {
 
 function fillAccountingForm(data) {
     const fields = [
-        'am_rev', 'am_pay', 'am_ticket', 'am_sell_ticket', 'am_exp', 'am_rest_ticket', 'am_exp_note',
-        'pm_rev', 'pm_pay', 'pm_ticket', 'pm_sell_ticket', 'pm_exp', 'pm_rest_ticket', 'pm_exp_note',
+        'am_operator', 'am_rev', 'am_pay', 'am_ticket', 'am_sell_ticket', 'am_exp', 'am_rest_ticket', 'am_exp_note',
+        'pm_operator', 'pm_rev', 'pm_pay', 'pm_ticket', 'pm_sell_ticket', 'pm_exp', 'pm_rest_ticket', 'pm_exp_note',
         'day_farm', 'stmt_prev_bal', 'stmt_reserve', 'acc_remark'
     ];
     fields.forEach(field => {
@@ -901,6 +971,7 @@ function saveAccountingData(showNotification = true) {
     const getVal = id => document.getElementById(id).value;
 
     const accData = {
+        am_operator: getVal('am_operator'),
         am_rev: getVal('am_rev'),
         am_pay: getVal('am_pay'),
         am_ticket: getVal('am_ticket'),
@@ -910,6 +981,7 @@ function saveAccountingData(showNotification = true) {
         am_rest_ticket: getVal('am_rest_ticket'),
         am_exp_note: getVal('am_exp_note'),
 
+        pm_operator: getVal('pm_operator'),
         pm_rev: getVal('pm_rev'),
         pm_pay: getVal('pm_pay'),
         pm_ticket: getVal('pm_ticket'),
@@ -954,7 +1026,7 @@ function openAccSummaryModal() {
     modalContent.innerHTML = `
         <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200/80">
             <div class="font-bold text-amber-800 border-b border-amber-200 pb-1 mb-2 flex justify-between items-center">
-                <span><i class="fas fa-sun mr-1"></i> 早班結帳</span>
+                <span><i class="fas fa-sun mr-1"></i> 早班結帳 <span class="text-xs font-normal text-slate-600">(經辦: ${escapeHtml(getStr('am_operator'))})</span></span>
                 <span class="text-amber-700">回收現金: $${getVal('am_cash')}</span>
             </div>
             <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-700">
@@ -970,7 +1042,7 @@ function openAccSummaryModal() {
 
         <div class="bg-indigo-50/70 p-3 rounded-xl border border-indigo-200/80">
             <div class="font-bold text-indigo-800 border-b border-indigo-200 pb-1 mb-2 flex justify-between items-center">
-                <span><i class="fas fa-moon mr-1"></i> 晚班結帳</span>
+                <span><i class="fas fa-moon mr-1"></i> 晚班結帳 <span class="text-xs font-normal text-slate-600">(經辦: ${escapeHtml(getStr('pm_operator'))})</span></span>
                 <span class="text-indigo-700">回收現金: $${getVal('pm_cash')}</span>
             </div>
             <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-700">
@@ -1030,7 +1102,6 @@ function exportAccSummaryImage() {
 
     const dateVal = document.getElementById('accTargetDate').value || 'acc';
     
-    // 定義安全取值函數，避免在全域找不到而出錯
     const getVal = id => {
         const el = document.getElementById(id);
         return el ? (el.value || '0') : '0';
@@ -1040,7 +1111,6 @@ function exportAccSummaryImage() {
         return el ? (el.value || '無') : '無';
     };
 
-    // 建立一個絕對定位且具備足夠寬度的完整渲染容器，並暫時掛載在可視的 body 內但位於畫面外
     const exportBox = document.createElement('div');
     exportBox.style.position = 'fixed';
     exportBox.style.left = '-9999px';
@@ -1060,7 +1130,7 @@ function exportAccSummaryImage() {
 
         <div style="background-color: #fffbeb; padding: 16px; border-radius: 12px; border: 1px solid #fde68a; margin-bottom: 12px;">
             <div style="font-weight: bold; color: #92400e; border-bottom: 1px solid #fde68a; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-                <span>早班結帳</span>
+                <span>早班結帳 (經辦: ${escapeHtml(getStr('am_operator'))})</span>
                 <span>回收現金: $${getVal('am_cash')}</span>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
@@ -1076,7 +1146,7 @@ function exportAccSummaryImage() {
 
         <div style="background-color: #eef2ff; padding: 16px; border-radius: 12px; border: 1px solid #c7d2fe; margin-bottom: 12px;">
             <div style="font-weight: bold; color: #3730a3; border-bottom: 1px solid #c7d2fe; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-                <span>晚班結帳</span>
+                <span>晚班結帳 (經辦: ${escapeHtml(getStr('pm_operator'))})</span>
                 <span>回收現金: $${getVal('pm_cash')}</span>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
@@ -1128,7 +1198,6 @@ function exportAccSummaryImage() {
 
     document.body.appendChild(exportBox);
 
-    // 給予足夠的時間讓瀏覽器完成 DOM 佈局計算與高度展開
     setTimeout(() => {
         const targetHeight = exportBox.scrollHeight || 1000;
 
@@ -1216,7 +1285,67 @@ function collectAndUpload() {
 }
 
 function renderSettingsView() {
+    renderSettingsOperatorList();
+    renderSettingsSupplierList();
+}
+
+function renderSettingsOperatorList() {
+    const container = document.getElementById('settingsOperatorList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!config.operators || config.operators.length === 0) {
+        container.innerHTML = `<div class="text-center py-4 text-slate-400 text-xs">尚無經辦人員資料</div>`;
+        return;
+    }
+
+    config.operators.forEach((op, idx) => {
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-xs';
+        item.innerHTML = `
+            <span class="font-medium text-slate-700">${escapeHtml(op.name)}</span>
+            <button onclick="deleteOperator('${op.id}')" class="text-slate-400 hover:text-rose-600 p-1" title="刪除">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function openOperatorModal() {
+    document.getElementById('modalOperatorName').value = '';
+    document.getElementById('operatorModal').classList.remove('hidden');
+}
+
+function closeOperatorModal() {
+    document.getElementById('operatorModal').classList.add('hidden');
+}
+
+function saveOperatorConfig() {
+    const name = document.getElementById('modalOperatorName').value.trim();
+    if (!name) { alert('請輸入姓名'); return; }
+
+    if (!config.operators) config.operators = [];
+    config.operators.push({ id: 'op_' + Date.now(), name });
+
+    db.ref('config').set(config).then(() => {
+        closeOperatorModal();
+        showToast('經辦人員已新增');
+    });
+}
+
+function deleteOperator(id) {
+    if (confirm('確定要刪除此經辦人員嗎？')) {
+        config.operators = config.operators.filter(o => o.id !== id);
+        db.ref('config').set(config).then(() => {
+            showToast('已刪除經辦人員');
+        });
+    }
+}
+
+function renderSettingsSupplierList() {
     const container = document.getElementById('settingsSupplierList');
+    if (!container) return;
     container.innerHTML = '';
     const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
 
