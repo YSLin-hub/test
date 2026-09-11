@@ -1730,39 +1730,36 @@ function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
 
-    // 檢查是否有實際內容或顯示無須叫貨
     const textContent = container.innerText.trim();
     if (!textContent || textContent.includes('目前沒有低於最低庫存的商品')) {
         showToast('目前沒有需要複製的叫貨內容');
         return;
     }
 
-    // 將 Modal 內的資訊整理成適合文字貼上的格式
     let copyText = "【低於庫存叫貨清單】\n";
     const groups = container.querySelectorAll('.bg-slate-50');
 
     groups.forEach(group => {
         const storeNameEl = group.querySelector('.font-bold');
         if (storeNameEl) {
-            // 擷取廠商名稱
             const storeName = storeNameEl.innerText.split('(')[0].trim();
             copyText += `\n📌 ${storeName}\n`;
 
-            // 【修正處】改用共用或更精準的 selector 來抓取商品列
-            const items = group.querySelectorAll('.product-item, .border-b.border-slate-100');
+            const items = group.querySelectorAll('.space-y-0.5 > div');
             items.forEach(item => {
-                const nameEl = item.querySelector('.font-medium, .text-slate-700');
-                const rightEl = item.querySelector('.text-right, div:last-child');
-                if (nameEl && rightEl) {
+                const nameEl = item.querySelector('.font-medium');
+                // 取得目前庫存數值（只抓取數字，不帶入「最低: X」的文字）
+                const currentStockEl = item.querySelector('.text-rose-600');
+                
+                if (nameEl && currentStockEl) {
                     const prodName = nameEl.innerText.trim();
-                    const stockInfo = rightEl.innerText.trim();
-                    copyText += ` - ${prodName} (${stockInfo})\n`;
+                    const stockNum = currentStockEl.innerText.replace('目前:', '').trim();
+                    copyText += ` - ${prodName}：${stockNum}\n`;
                 }
             });
         }
     });
 
-    // 執行剪貼簿複製
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(copyText).then(() => {
             showToast('已成功複製叫貨文字！');
