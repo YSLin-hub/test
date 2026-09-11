@@ -1724,7 +1724,9 @@
 		
 // 複製叫貨清單文字
 function copyOrderText() {
-    const text = document.getElementById('orderModalContent').innerText;
+    const container = document.getElementById('orderModalContent');
+    if (!container) return;
+    const text = container.innerText;
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
