@@ -1725,8 +1725,7 @@
         }
 
         window.onload = init;
-		
-		function copyOrderText() {
+	function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
 
@@ -1744,27 +1743,55 @@
     groups.forEach(group => {
         const storeNameEl = group.querySelector('.font-bold');
         if (storeNameEl) {
-            copyText += `\n📌 ${storeNameEl.innerText.trim()}\n`;
+            // 擷取廠商名稱
+            const storeName = storeNameEl.innerText.split('(')[0].trim();
+            copyText += `\n📌 ${storeName}\n`;
+
+            // 擷取該廠商底下的商品與庫存
+            const items = group.querySelectorAll('.flex.justify-between.items-center.py-1.5');
+            items.forEach(item => {
+                const prodName = item.querySelector('.font-medium').innerText.trim();
+                const stockInfo = item.querySelector('.text-right').innerText.trim();
+                copyText += ` - ${prodName} (${stockInfo})\n`;
+            });
         }
-        const items = group.querySelectorAll('.space-y-0.5 > div, .border-b');
-        items.forEach(item => {
-            const spans = item.querySelectorAll('span');
-            if (spans.length >= 2) {
-                const prodName = spans[0].innerText.trim();
-                const prodStatus = spans[1].innerText.trim();
-                copyText += ` - ${prodName} (${prodStatus})\n`;
-            }
-        });
     });
 
-    // 執行寫入剪貼簿
-    navigator.clipboard.writeText(copyText.trim()).then(() => {
-        showToast('已成功複製叫貨文字至剪貼簿！');
-    }).catch(err => {
-        console.error('複製失敗:', err);
-        showToast('複製失敗，請手動複製');
-    });
+    // 執行剪貼簿複製
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(copyText).then(() => {
+            showToast('已成功複製叫貨文字！');
+        }).catch(err => {
+            console.error('複製失敗:', err);
+            fallbackCopyText(copyText);
+        });
+    } else {
+        fallbackCopyText(copyText);
+    }
 }
+
+// 備用複製方法（相容舊版瀏覽器）
+function fallbackCopyText(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';  // 避免頁面捲動
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showToast('已成功複製叫貨文字！');
+        } else {
+            showToast('複製失敗，請手動複製');
+        }
+    } catch (err) {
+        console.error('備用複製失敗:', err);
+        showToast('複製失敗，請手動複製');
+    }
+    document.body.removeChild(textarea);
+}	
+
     </script>
 </body>
 </html>
