@@ -1747,26 +1747,22 @@ function copyOrderText() {
             copyText += `\n📌 ${storeName}\n`;
 
             // 改用較具容錯性的選擇器，只要是清單內的商品列即可
-            const items = group.querySelectorAll('.product-item, div.flex.items-center.justify-between');
-            
+            const items = group.querySelectorAll('.space-y-0.5 > div');
             items.forEach(item => {
-                // 抓取商品名稱與庫存文字
-                const nameEl = item.querySelector('.font-medium') || item.querySelector('span:first-child');
-                // 找尋包含庫存數值的元素（通常帶有顏色或在右側）
-                const stockEl = item.querySelector('.text-rose-600') || item.querySelector('.text-right span') || item.lastElementChild;
+                const nameEl = item.querySelector('.font-medium');
+                const currentStockEl = item.querySelector('.text-rose-600');
                 
-                if (nameEl && stockEl) {
+                if (nameEl && currentStockEl) {
                     const prodName = nameEl.innerText.trim();
-                    // 清理文字，只保留純數字或需要的庫存量
-                    let stockNum = stockEl.innerText.trim();
-                    if (stockNum.includes('目前:')) {
-                        stockNum = stockNum.replace('目前:', '').trim();
+                    const stockNum = currentStockEl.innerText.replace('目前:', '').trim();
+                    
+                    // 過濾掉不小心抓到的廠商標題或計數文字
+                    if (prodName === storeName || prodName.includes('項需叫貨')) {
+                        return;
                     }
                     
-                    // 避免抓到廠商標題本身
-                    if (prodName !== storeName && !prodName.includes('【')) {
-                        copyText += ` - ${prodName}：${stockNum}\n`;
-                    }
+                    // 修改這裡的格式：商品名稱 + 兩個空格 + 庫存： + 數量
+                    copyText += ` - ${prodName}  庫存：${stockNum}\n`;
                 }
             });
         }
