@@ -1030,64 +1030,78 @@ function exportAccSummaryImage() {
     if (!modalElement) return;
 
     // 找到內層可捲動的容器與底部按鈕
-    const scrollContainer = modalElement.querySelector('.max-h-\\[75vh\\]') || modalElement;
+    const scrollContainer = modalElement.querySelector('.max-h-\\[75vh\\]') || modalElement.querySelector('[class*="overflow-y"]');
     const footerButtons = modalElement.querySelector('.border-t');
     
-    // 暫時隱藏按鈕避免被拍進去
+    // 1. 暫時隱藏底部按鈕
     if (footerButtons) footerButtons.style.display = 'none';
+
+    // 2. 記錄原本的樣式，以便截圖後恢復
+    const originalMaxHeight = scrollContainer ? scrollContainer.style.maxHeight : '';
+    const originalOverflow = scrollContainer ? scrollContainer.style.overflow : '';
+    const originalPosition = modalElement.style.position;
+
+    // 3. 暫時解除高度限制與捲動，讓所有隱藏內容完整撐開
+    if (scrollContainer) {
+        scrollContainer.style.maxHeight = 'none';
+        scrollContainer.style.overflow = 'visible';
+    }
+    modalElement.style.position = 'absolute';
 
     showToast('正在產生完整圖片，請稍候...');
 
-    // 強制把捲動區域拉到最頂端，確保截圖完整
-    const originalScrollTop = scrollContainer.scrollTop;
-    scrollContainer.scrollTop = 0;
+    // 稍微延遲確保 DOM 渲染更新
+    setTimeout(() => {
+        html2canvas(modalElement, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            windowWidth: modalElement.scrollWidth,
+            windowHeight: modalElement.scrollHeight
+        }).then(canvas => {
+            // 恢復原本的樣式與按鈕
+            if (scrollContainer) {
+                scrollContainer.style.maxHeight = originalMaxHeight;
+                scrollContainer.style.overflow = originalOverflow;
+            }
+            modalElement.style.position = originalPosition;
+            if (footerButtons) footerButtons.style.display = 'flex';
 
-    // 取得內容的完整總高度
-    const fullHeight = scrollContainer.scrollHeight;
+            const dateVal = document.getElementById('accTargetDate').value || 'acc';
+            const filename = `${dateVal}-帳務總覽.png`;
 
-    html2canvas(modalElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        windowHeight: fullHeight + 100 // 確保視窗高度足以涵蓋全部內容
-    }).then(canvas => {
-        // 恢復按鈕與原本捲動位置
-        if (footerButtons) footerButtons.style.display = 'flex';
-        scrollContainer.scrollTop = originalScrollTop;
-
-        const dateVal = document.getElementById('accTargetDate').value || 'acc';
-        const filename = `${dateVal}-帳務總覽.png`;
-
-        // 檢查是否為行動裝置或支援直接下載
-        if (canvas.toBlob) {
-            canvas.toBlob(blob => {
-                const url = URL.createObjectURL(blob);
+            // 支援手機與電腦的通用下載機制 (Blob)
+            if (canvas.toBlob) {
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    showToast('圖片已成功下載！');
+                }, 'image/png');
+            } else {
                 const link = document.createElement('a');
-                link.href = url;
                 link.download = filename;
-                
-                // 針對手機瀏覽器相容性處理
-                document.body.appendChild(link);
+                link.href = canvas.toDataURL('image/png');
                 link.click();
-                document.body.removeChild(link);
-                
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
                 showToast('圖片已成功下載！');
-            }, 'image/png');
-        } else {
-            // 傳統 DataURL 備用方案
-            const link = document.createElement('a');
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            showToast('圖片已成功下載！');
-        }
-    }).catch(err => {
-        console.error('產生圖片失敗:', err);
-        if (footerButtons) footerButtons.style.display = 'flex';
-        scrollContainer.scrollTop = originalScrollTop;
-        showToast('產生圖片失敗，請稍後再試');
-    });
+            }
+        }).catch(err => {
+            console.error('產生圖片失敗:', err);
+            // 發生錯誤也要確保樣式恢復
+            if (scrollContainer) {
+                scrollContainer.style.maxHeight = originalMaxHeight;
+                scrollContainer.style.overflow = originalOverflow;
+            }
+            modalElement.style.position = originalPosition;
+            if (footerButtons) footerButtons.style.display = 'flex';
+            showToast('產生圖片失敗，請稍後再試');
+        });
+    }, 100);
 }
 
 function closeAccSummaryModal() {
