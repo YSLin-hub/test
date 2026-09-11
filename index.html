@@ -1737,7 +1737,6 @@ function copyOrderText() {
     }
 
     let copyText = "【低於庫存叫貨清單】\n";
-    // 抓取每個廠商的區塊（請依實際外層區塊調整，若原本是 .bg-slate-50 則維持）
     const groups = container.querySelectorAll('.bg-slate-50');
 
     groups.forEach(group => {
@@ -1746,8 +1745,8 @@ function copyOrderText() {
             const storeName = storeNameEl.innerText.split('(')[0].trim();
             copyText += `\n📌 ${storeName}\n`;
 
-            // 改用較具容錯性的選擇器，只要是清單內的商品列即可
-            const items = group.querySelectorAll('[class*="space-y"] > div');
+            // 已避開小數點 CSS 選擇器錯誤，改用安全的 div > div 結構
+            const items = group.querySelectorAll('div > div');
             items.forEach(item => {
                 const nameEl = item.querySelector('.font-medium');
                 const currentStockEl = item.querySelector('.text-rose-600');
@@ -1756,12 +1755,11 @@ function copyOrderText() {
                     const prodName = nameEl.innerText.trim();
                     const stockNum = currentStockEl.innerText.replace('目前:', '').trim();
                     
-                    // 過濾掉不小心抓到的廠商標題或計數文字
+                    // 過濾掉廠商標題與計數文字
                     if (prodName === storeName || prodName.includes('項需叫貨')) {
                         return;
                     }
                     
-                    // 修改這裡的格式：商品名稱 + 兩個空格 + 庫存： + 數量
                     copyText += ` - ${prodName}  庫存：${stockNum}\n`;
                 }
             });
