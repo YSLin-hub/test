@@ -1030,6 +1030,16 @@ function exportAccSummaryImage() {
 
     const dateVal = document.getElementById('accTargetDate').value || 'acc';
     
+    // 定義安全取值函數，避免在全域找不到而出錯
+    const getVal = id => {
+        const el = document.getElementById(id);
+        return el ? (el.value || '0') : '0';
+    };
+    const getStr = id => {
+        const el = document.getElementById(id);
+        return el ? (el.value || '無') : '無';
+    };
+
     // 建立一個絕對定位且具備足夠寬度的完整渲染容器，並暫時掛載在可視的 body 內但位於畫面外
     const exportBox = document.createElement('div');
     exportBox.style.position = 'fixed';
@@ -1120,7 +1130,7 @@ function exportAccSummaryImage() {
 
     // 給予足夠的時間讓瀏覽器完成 DOM 佈局計算與高度展開
     setTimeout(() => {
-        const targetHeight = exportBox.scrollHeight;
+        const targetHeight = exportBox.scrollHeight || 1000;
 
         html2canvas(exportBox, {
             scale: 2,
@@ -1131,7 +1141,9 @@ function exportAccSummaryImage() {
             height: targetHeight,
             windowHeight: targetHeight + 100
         }).then(canvas => {
-            document.body.removeChild(exportBox);
+            if (document.body.contains(exportBox)) {
+                document.body.removeChild(exportBox);
+            }
             const filename = `${dateVal}-帳務總覽.png`;
 
             if (canvas.toBlob) {
