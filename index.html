@@ -103,14 +103,10 @@
                         </button>
                     </div>
                     <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
-                    <!-- 修改叫貨清單 Modal 的底部按鈕區塊 -->
-<div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-    <button onclick="copyOrderText()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
-        <i class="fas fa-copy"></i> 複製文字
-    </button>
-    <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
-        關閉
-    </button>
+<!-- 叫貨清單 Modal 底部按鈕區 -->
+<div class="modal-footer" style="padding: 15px; text-align: right; border-top: 1px solid #ddd;">
+    <button onclick="copyOrderText()" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">複製文字</button>
+    <button onclick="closeOrderModal()" style="padding: 8px 16px; background-color: #ccc; color: black; border: none; border-radius: 4px; cursor: pointer;">關閉</button>
 </div>
                 </div>
             </div>
@@ -1726,71 +1722,49 @@
 
         window.onload = init;
 		
+// 複製叫貨清單文字
 function copyOrderText() {
-    const container = document.getElementById('orderModalContent');
-    if (!container) return;
-
-    const groups = container.querySelectorAll('.bg-slate-50');
-    if (groups.length === 0 || container.innerText.includes('目前沒有低於最低庫存的商品')) {
-        showToast('目前沒有需要複製的叫貨內容');
-        return;
-    }
-
-    let copyText = "【低於庫存叫貨清單】\n";
-
-    groups.forEach(group => {
-        const storeNameEl = group.querySelector('.font-bold');
-        if (storeNameEl) {
-            const storeName = storeNameEl.innerText.split('(')[0].trim();
-            copyText += `\n📌 ${storeName}\n`;
-
-            const itemRows = group.querySelectorAll('.space-y-0.5 > div');
-            itemRows.forEach(row => {
-                const nameEl = row.querySelector('.font-medium');
-                const currentEl = row.querySelector('.text-rose-600');
-                if (nameEl && currentEl) {
-                    const prodName = nameEl.innerText.trim();
-                    const currentStock = currentEl.innerText.replace('目前:', '').trim();
-                    copyText += `- ${prodName}  庫存：${currentStock}\n`;
-                }
-            });
-        }
-    });
-
+    const text = document.getElementById('orderModalContent').innerText;
+    
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(copyText).then(() => {
-            showToast('已成功複製叫貨文字！');
+        navigator.clipboard.writeText(text).then(() => {
+            alert('已成功複製叫貨清單！');
         }).catch(err => {
-            console.error('剪貼簿 API 寫入失敗，改用備用方案:', err);
-            fallbackCopyText(copyText);
+            console.error('複製失敗，嘗試備用方法', err);
+            fallbackCopyText(text);
         });
     } else {
-        fallbackCopyText(copyText);
+        fallbackCopyText(text);
     }
 }
 
+// 備用複製方法（相容舊版瀏覽器）
 function fallbackCopyText(text) {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';  // 避免頁面捲動
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    // 避免畫面捲動
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.opacity = "0";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
     try {
         const successful = document.execCommand('copy');
         if (successful) {
-            showToast('已成功複製叫貨文字！');
+            alert('已成功複製叫貨清單！');
         } else {
-            showToast('複製失敗，請手動複製');
+            alert('複製失敗，請手動複製。');
         }
     } catch (err) {
-        console.error('執行備用複製指令發生錯誤:', err);
-        showToast('複製失敗，瀏覽器不支援');
+        console.error('無法使用備用方法複製', err);
+        alert('複製失敗，請手動複製。');
     }
-
-    document.body.removeChild(textarea);
+    
+    document.body.removeChild(textArea);
 }
     </script>
 </body>
