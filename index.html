@@ -1730,14 +1730,13 @@ function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
 
-    const textContent = container.innerText.trim();
-    if (!textContent || textContent.includes('目前沒有低於最低庫存的商品')) {
+    const groups = container.querySelectorAll('.bg-slate-50');
+    if (groups.length === 0 || container.innerText.includes('目前沒有低於最低庫存的商品')) {
         showToast('目前沒有需要複製的叫貨內容');
         return;
     }
 
     let copyText = "【低於庫存叫貨清單】\n";
-    const groups = container.querySelectorAll('.bg-slate-50');
 
     groups.forEach(group => {
         const storeNameEl = group.querySelector('.font-bold');
@@ -1745,22 +1744,14 @@ function copyOrderText() {
             const storeName = storeNameEl.innerText.split('(')[0].trim();
             copyText += `\n📌 ${storeName}\n`;
 
-            // 已避開小數點 CSS 選擇器錯誤，改用安全的 div > div 結構
-            const items = group.querySelectorAll('div > div');
-            items.forEach(item => {
-                const nameEl = item.querySelector('.font-medium');
-                const currentStockEl = item.querySelector('.text-rose-600');
-                
-                if (nameEl && currentStockEl) {
+            const itemRows = group.querySelectorAll('.space-y-0.5 > div');
+            itemRows.forEach(row => {
+                const nameEl = row.querySelector('.font-medium');
+                const currentEl = row.querySelector('.text-rose-600');
+                if (nameEl && currentEl) {
                     const prodName = nameEl.innerText.trim();
-                    const stockNum = currentStockEl.innerText.replace('目前:', '').trim();
-                    
-                    // 過濾掉廠商標題與計數文字
-                    if (prodName === storeName || prodName.includes('項需叫貨')) {
-                        return;
-                    }
-                    
-                    copyText += ` - ${prodName}  庫存：${stockNum}\n`;
+                    const currentStock = currentEl.innerText.replace('目前:', '').trim();
+                    copyText += `- ${prodName}  庫存：${currentStock}\n`;
                 }
             });
         }
@@ -1770,7 +1761,7 @@ function copyOrderText() {
         navigator.clipboard.writeText(copyText).then(() => {
             showToast('已成功複製叫貨文字！');
         }).catch(err => {
-            console.error('複製失敗:', err);
+            console.error('剪貼簿 API 寫入失敗，改用備用方案:', err);
             fallbackCopyText(copyText);
         });
     } else {
@@ -1778,6 +1769,29 @@ function copyOrderText() {
     }
 }
 
+function fallbackCopyText(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';  // 避免頁面捲動
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showToast('已成功複製叫貨文字！');
+        } else {
+            showToast('複製失敗，請手動複製');
+        }
+    } catch (err) {
+        console.error('執行備用複製指令發生錯誤:', err);
+        showToast('複製失敗，瀏覽器不支援');
+    }
+
+    document.body.removeChild(textarea);
+}
     </script>
 </body>
 </html>
