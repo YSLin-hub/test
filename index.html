@@ -1028,12 +1028,11 @@ function openAccSummaryModal() {
 function exportAccSummaryImage() {
     showToast('正在產生完整圖片，請稍候...');
 
-    // 1. 抓取目前畫面上各個欄位的值
     const dateVal = document.getElementById('accTargetDate').value || 'acc';
     
-    // 2. 動態建立一個專門用來轉成圖片的隱藏容器（寬度固定 600px，高度自動延展）
+    // 建立一個絕對定位且具備足夠寬度的完整渲染容器，並暫時掛載在可視的 body 內但位於畫面外
     const exportBox = document.createElement('div');
-    exportBox.style.position = 'absolute';
+    exportBox.style.position = 'fixed';
     exportBox.style.left = '-9999px';
     exportBox.style.top = '0';
     exportBox.style.width = '600px';
@@ -1042,11 +1041,11 @@ function exportAccSummaryImage() {
     exportBox.style.fontFamily = 'system-ui, -apple-system, sans-serif';
     exportBox.style.boxSizing = 'border-box';
     exportBox.style.color = '#1e293b';
+    exportBox.style.zIndex = '99999';
 
-    // 3. 組裝完整的 HTML 內容（包含所有早班、晚班、整日、出納與備註）
     exportBox.innerHTML = `
-        <div style="font-size: 20px; font-weight: bold; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
-            <span>🟡</span> <span>${dateVal} 帳務總覽</span>
+        <div style="font-size: 20px; font-weight: bold; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
+            🟡 ${dateVal} 帳務總覽
         </div>
 
         <div style="background-color: #fffbeb; padding: 16px; border-radius: 12px; border: 1px solid #fde68a; margin-bottom: 12px;">
@@ -1119,19 +1118,22 @@ function exportAccSummaryImage() {
 
     document.body.appendChild(exportBox);
 
-    // 4. 進行高畫質截圖
+    // 給予足夠的時間讓瀏覽器完成 DOM 佈局計算與高度展開
     setTimeout(() => {
+        const targetHeight = exportBox.scrollHeight;
+
         html2canvas(exportBox, {
             scale: 2,
             useCORS: true,
             backgroundColor: '#ffffff',
+            width: 600,
             windowWidth: 600,
-            windowHeight: exportBox.scrollHeight
+            height: targetHeight,
+            windowHeight: targetHeight + 100
         }).then(canvas => {
             document.body.removeChild(exportBox);
             const filename = `${dateVal}-帳務總覽.png`;
 
-            // 5. 跨平台下載（同時支援手機與電腦）
             if (canvas.toBlob) {
                 canvas.toBlob(blob => {
                     const url = URL.createObjectURL(blob);
@@ -1158,7 +1160,7 @@ function exportAccSummaryImage() {
             }
             showToast('產生圖片失敗，請稍後再試');
         });
-    }, 100);
+    }, 300);
 }
 
 function closeAccSummaryModal() {
