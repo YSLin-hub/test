@@ -1725,7 +1725,8 @@
         }
 
         window.onload = init;
-	function copyOrderText() {
+		
+function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
 
@@ -1747,12 +1748,16 @@
             const storeName = storeNameEl.innerText.split('(')[0].trim();
             copyText += `\n📌 ${storeName}\n`;
 
-            // 擷取該廠商底下的商品與庫存
-            const items = group.querySelectorAll('.flex.justify-between.items-center.py-1.5');
+            // 【修正處】改用共用或更精準的 selector 來抓取商品列
+            const items = group.querySelectorAll('.product-item, .border-b.border-slate-100');
             items.forEach(item => {
-                const prodName = item.querySelector('.font-medium').innerText.trim();
-                const stockInfo = item.querySelector('.text-right').innerText.trim();
-                copyText += ` - ${prodName} (${stockInfo})\n`;
+                const nameEl = item.querySelector('.font-medium, .text-slate-700');
+                const rightEl = item.querySelector('.text-right, div:last-child');
+                if (nameEl && rightEl) {
+                    const prodName = nameEl.innerText.trim();
+                    const stockInfo = rightEl.innerText.trim();
+                    copyText += ` - ${prodName} (${stockInfo})\n`;
+                }
             });
         }
     });
@@ -1769,28 +1774,6 @@
         fallbackCopyText(copyText);
     }
 }
-
-// 備用複製方法（相容舊版瀏覽器）
-function fallbackCopyText(text) {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';  // 避免頁面捲動
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            showToast('已成功複製叫貨文字！');
-        } else {
-            showToast('複製失敗，請手動複製');
-        }
-    } catch (err) {
-        console.error('備用複製失敗:', err);
-        showToast('複製失敗，請手動複製');
-    }
-    document.body.removeChild(textarea);
-}	
 
     </script>
 </body>
