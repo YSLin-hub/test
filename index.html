@@ -103,11 +103,15 @@
                         </button>
                     </div>
                     <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
-                    <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-end">
-                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition">
-                            關閉
-                        </button>
-                    </div>
+                    <!-- 修改叫貨清單 Modal 的底部按鈕區塊 -->
+<div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+    <button onclick="copyOrderText()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+        <i class="fas fa-copy"></i> 複製文字
+    </button>
+    <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
+        關閉
+    </button>
+</div>
                 </div>
             </div>
 
@@ -1721,6 +1725,46 @@
         }
 
         window.onload = init;
+		
+		function copyOrderText() {
+    const container = document.getElementById('orderModalContent');
+    if (!container) return;
+
+    // 檢查是否有實際內容或顯示無須叫貨
+    const textContent = container.innerText.trim();
+    if (!textContent || textContent.includes('目前沒有低於最低庫存的商品')) {
+        showToast('目前沒有需要複製的叫貨內容');
+        return;
+    }
+
+    // 將 Modal 內的資訊整理成適合文字貼上的格式
+    let copyText = "【低於庫存叫貨清單】\n";
+    const groups = container.querySelectorAll('.bg-slate-50');
+
+    groups.forEach(group => {
+        const storeNameEl = group.querySelector('.font-bold');
+        if (storeNameEl) {
+            copyText += `\n📌 ${storeNameEl.innerText.trim()}\n`;
+        }
+        const items = group.querySelectorAll('.space-y-0.5 > div, .border-b');
+        items.forEach(item => {
+            const spans = item.querySelectorAll('span');
+            if (spans.length >= 2) {
+                const prodName = spans[0].innerText.trim();
+                const prodStatus = spans[1].innerText.trim();
+                copyText += ` - ${prodName} (${prodStatus})\n`;
+            }
+        });
+    });
+
+    // 執行寫入剪貼簿
+    navigator.clipboard.writeText(copyText.trim()).then(() => {
+        showToast('已成功複製叫貨文字至剪貼簿！');
+    }).catch(err => {
+        console.error('複製失敗:', err);
+        showToast('複製失敗，請手動複製');
+    });
+}
     </script>
 </body>
 </html>
