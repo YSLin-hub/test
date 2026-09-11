@@ -90,24 +90,29 @@
             </div>
 
             <!-- 叫貨清單 Modal -->
-            <div id="orderModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
-                <div class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
-                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-emerald-50/50">
-                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                            <i class="fas fa-clipboard-list text-emerald-600"></i> 低於庫存叫貨清單
-                        </h3>
-                        <button onclick="closeOrderModal()" class="text-slate-400 hover:text-slate-600">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
-                    <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-end">
-                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition">
-                            關閉
-                        </button>
-                    </div>
-                </div>
-            </div>
+<div id="orderModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-emerald-50/50">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-clipboard-list text-emerald-600"></i> 低於庫存叫貨清單
+            </h3>
+            <button onclick="closeOrderModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
+        
+        <!-- 修改這個區塊：新增複製文字按鈕 -->
+        <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+            <button onclick="copyOrderListToClipboard()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-medium transition flex items-center gap-1.5 text-xs shadow-xs">
+                <i class="fas fa-copy"></i> 複製文字
+            </button>
+            <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
+                關閉
+            </button>
+        </div>
+    </div>
+</div>
 
             <!-- 叫貨清單列表 -->
             <div id="todaySupplierList" class="space-y-4"></div>
@@ -1340,6 +1345,83 @@ function searchAndScrollToProduct() {
 }
 
 window.onload = init;
-    </script>
+    
+	function copyOrderListToClipboard() {
+    if (typeof config === 'undefined' || !config.suppliers) return;
+
+    let textLines = [];
+
+    config.suppliers.forEach(sup => {
+        const lowStockProducts = [];
+        (sup.products || []).forEach(prod => {
+            let stockVal = null;
+            const input = document.querySelector(`input[data-prod-id="${prod.id}"]`);
+            if (input && input.value !== '') {
+                stockVal = input.value;
+            } else if (typeof currentDayLogs !== 'undefined' && currentDayLogs[prod.id] !== undefined) {
+                stockVal = currentDayLogs[prod.id];
+            }
+
+            if (stockVal !== null && stockVal !== undefined && stockVal.toString().trim() !== '') {
+                const currentNum = Number(stockVal);
+                const minNum = Number(prod.minStock);
+                if (!isNaN(currentNum) && currentNum <= minNum) {
+                    lowStockProducts.push({ name: prod.name, current: currentNum });
+                }
+            }
+        });
+
+        if (lowStockProducts.length > 0) {
+            textLines.push(`【${sup.name}】`);
+            lowStockProducts.forEach(p => {
+                textLines.push(`${p.name}：目前數量 ${p.current}`);
+            });
+            textLines.push(''); // 空行分隔廠商
+        }
+    });
+
+    if (textLines.length === 0) {
+        showToast('目前沒有需要叫貨的品項！');
+        return;
+    }
+
+    const resultText = textLines.join('\n').trim();
+
+    // 使用 Clipboard API 進行複製
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(resultText).then(() => {
+            showToast('已成功複製叫貨文字至剪貼簿！');
+        }).catch(err => {
+            console.error('複製失敗: ', err);
+            fallbackCopyText(resultText);
+        });
+    } else {
+        fallbackCopyText(resultText);
+    }
+}
+
+// 針對舊版或不支援 navigator.clipboard 瀏覽器的向下相容機制
+function fallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showToast('已成功複製叫貨文字至剪貼簿！');
+        } else {
+            showToast('複製失敗，請手動複製');
+        }
+    } catch (err) {
+        showToast('複製失敗，請手動複製');
+    }
+    document.body.removeChild(textArea);
+}
+	
+	</script>
 </body>
 </html>
