@@ -363,6 +363,10 @@
                   <button onclick="exportAccSummaryImage()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
                       <i class="fas fa-camera"></i> 輸出圖片
                   </button>
+				  <!-- 【新增】傳送到 LINE 按鈕 -->
+        <button onclick="shareAccSummaryLine()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+            <i class="fab fa-line"></i> 傳送到 LINE
+        </button>
                   <button onclick="closeAccSummaryModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
                       關閉
                   </button>
@@ -1908,6 +1912,58 @@ function handleAccDateChange() {
             // 寫入 Firebase
             db.ref('logs/' + dateVal).update(updates);
         }
+		
+		
+		
+		// 【新增/修改】將帳務總覽以與「輸出圖片」完全相同的格式產生，並下載後引導至 LINE
+function shareAccSummaryLine() {
+    // 1. 檢查是否有與輸出圖片相同的產生函式 (例如 exportAccSummaryImage 內部產生的 canvas 或 html2canvas)
+    // 如果您的「輸出圖片」是用 html2canvas 對準某個 Modal 區塊，請把該段邏輯共用過來：
+    
+    const targetElement = document.getElementById('accSummaryModalContent'); // 假設這是您 Modal 內容的 ID，請依實際情況調整
+    
+    if (typeof html2canvas === 'undefined') {
+        alert('尚未載入圖片產生工具');
+        return;
+    }
+
+    // 顯示提示
+    console.log('正在產生與輸出圖片相同格式的帳務圖片...');
+
+    html2canvas(targetElement, {
+        scale: 2, // 保持與輸出圖片相同的清晰度設定
+        useCORS: true,
+        backgroundColor: '#ffffff'
+    }).then(canvas => {
+        // 2. 將 canvas 轉為圖片檔案 (Blob / Base64)
+        canvas.toBlob(function(blob) {
+            const dateVal = document.getElementById('accTargetDate').value || '今日';
+            const fileName = `${dateVal}帳務總覽.png`;
+            
+            // 建立下載連結以儲存圖片
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // 3. 提示使用者並開啟 LINE
+            setTimeout(() => {
+                const userConfirmed = confirm(`✅ 圖片「${fileName}」已自動下載！\n\n是否要立即開啟 LINE？\n(開啟 LINE 後，您可以直接在聊天室中將剛才下載的圖片上傳傳送)`);
+                if (userConfirmed) {
+                    // 開啟 LINE 分享或 LINE 首頁
+                    window.open('https://line.me/', '_blank');
+                }
+            }, 500);
+        }, 'image/png');
+    }).catch(err => {
+        console.error('產生圖片失敗:', err);
+        alert('圖片產生失敗，請再試一次。');
+    });
+}
 	</script>
 </body>
 </html>
