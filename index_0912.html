@@ -142,6 +142,10 @@
                         <button onclick="goToTodayAcc()" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md font-medium transition">
                             回到今天
                         </button>
+						<!-- 【新增】解鎖補登按鈕，樣式與唯讀標籤保持一致的微型按鈕風格 -->
+						<button id="unlockEditBtn" class="hidden text-xs text-amber-700 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 font-medium transition flex items-center gap-1" onclick="toggleAccountingEdit()">
+						<i class="fas fa-unlock"></i> 解鎖補登
+						</button>
                         <div id="accReadOnlyBadge" class="hidden px-2 py-0.5 bg-amber-50 text-amber-700 text-[11px] font-medium rounded-md border border-amber-200 flex items-center gap-1">
                             <i class="fas fa-lock text-amber-500"></i> 唯讀
                         </div>
@@ -151,7 +155,7 @@
                     <button onclick="changeAccDate(-1)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-md transition shadow-xs">
                         <i class="fas fa-chevron-left text-xs"></i>
                     </button>
-                    <input type="date" id="accTargetDate" onchange="loadAccountingData()" class="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none text-center">
+                    <input type="date" id="accTargetDate" onchange="handleAccDateChange()" class="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none text-center">
                     <button onclick="changeAccDate(1)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-md transition shadow-xs">
                         <i class="fas fa-chevron-right text-xs"></i>
                     </button>
@@ -888,25 +892,37 @@ function setupDatabaseListeners() {
             loadAccountingData();
         }
 
-        function loadAccountingData() {
+function loadAccountingData() {
     const dateVal = document.getElementById('accTargetDate').value;
     const todayStr = getTodayString();
-    const isReadOnly = dateVal < todayStr; 
+    
+    // 【修改】只有在「選過去日期」且「尚未手動解鎖」時才為唯讀
+    const isHistorical = dateVal < todayStr;
+    const isReadOnly = isHistorical && !isForceEditable; 
     const prevDateVal = getPrevDateString(dateVal);
 
     const accBadge = document.getElementById('accReadOnlyBadge');
     const accSaveBtn = document.getElementById('accSaveBtn');
     const floatSaveBtnAcc = document.getElementById('floatSaveBtnAcc');
+    
+    // 【新增】取得解鎖按鈕 DOM
+    const unlockEditBtn = document.getElementById('unlockEditBtn');
 
+    // 顯示「唯讀」標籤（只有選歷史日期且沒解鎖時才顯示）
     if (accBadge) accBadge.classList.toggle('hidden', !isReadOnly);
+    
+    // 【新增】控制「解鎖補登」按鈕：只有在「選歷史日期」時才出現，當天或未來則隱藏
+    if (unlockEditBtn) {
+        unlockEditBtn.classList.toggle('hidden', !isHistorical);
+    }
+
+    // 儲存按鈕的顯示控制（若為唯讀則隱藏，可編輯則顯示）
     if (accSaveBtn) accSaveBtn.classList.toggle('hidden', isReadOnly);
     if (floatSaveBtnAcc) floatSaveBtnAcc.classList.toggle('hidden', isReadOnly);
 
-    // 自 Firebase Realtime Database 取得指定日期的帳務結算資料
     db.ref('accounting/' + dateVal).once('value', (snapshot) => {
         currentAccData = snapshot.val() || {};
 
-        // 若前一日結餘欄位無資料，透過 Firebase 查詢前一天的帶入餘額
         if (currentAccData.stmt_prev_bal === undefined || currentAccData.stmt_prev_bal === '') {
             db.ref('accounting/' + prevDateVal).once('value', (prevSnap) => {
                 const prevData = prevSnap.val() || {};
@@ -1806,6 +1822,47 @@ function formatOrderText(text) {
 
     return result.join('\n');
 }
-    </script>
+    
+	// 【新增】全域變數：記錄目前是否已透過認證強制解鎖編輯
+let isForceEditable = false;
+
+// 【新增】點擊解鎖按鈕時執行的 Firebase 身分檢查函數
+function toggleAccountingEdit() {
+    const user = auth.currentUser;
+    
+    // 檢查是否為匿名登入或未登入
+    if (!user || user.isAnonymous) {
+        alert('權限不足：匿名訪客或未登入帳號無法解鎖補登！');
+        return;
+    }
+
+    isForceEditable = !isForceEditable;
+    const btn = document.getElementById('unlockEditBtn');
+    if (btn) {
+        btn.textContent = isForceEditable ? '🔒 鎖定唯讀' : '🔓 解鎖補登';
+        btn.classList.toggle('btn-outline-warning', !isForceEditable);
+        btn.classList.toggle('btn-warning', isForceEditable);
+    }
+    
+    // 重新載入帳務資料以套用解鎖後的編輯狀態
+    loadAccountingData();
+}
+function handleAccDateChange() {
+    // 重置解鎖狀態
+    isForceEditable = false;
+
+    // 恢復解鎖按鈕的預設文字與樣式
+    const unlockBtn = document.getElementById('unlockEditBtn');
+    if (unlockBtn) {
+        unlockBtn.textContent = '🔓 解鎖補登';
+        unlockBtn.classList.remove('btn-warning');
+        unlockBtn.classList.add('btn-outline-warning');
+    }
+
+    // 載入新日期的帳務資料與權限狀態
+    loadAccountingData();
+}	
+	
+	</script>
 </body>
 </html>
