@@ -805,7 +805,7 @@ function setupDatabaseListeners() {
             }
         }
 
-        function renderTodayView() {
+function renderTodayView() {
             const dateVal = document.getElementById('targetDate').value;
             const todayStr = getTodayString();
             const isReadOnly = dateVal < todayStr;
@@ -847,20 +847,26 @@ function setupDatabaseListeners() {
                 let productsHtml = '';
                 (sup.products || []).forEach(prod => {
                     const val = currentDayLogs[prod.id] !== undefined ? currentDayLogs[prod.id] : '';
-                    const isWarn = val !== '' && !isNaN(val) && Number(val) <= prod.minStock;
+                    const adjustedMinStock = getAdjustedMinStock(sup, prod, targetDateObj);
+                    const isWarn = val !== '' && !isNaN(val) && Number(val) <= adjustedMinStock;
+
+                    // 修正：用一般字串相加取代巢狀反引號，修復編輯器高亮崩潰
+                    const minStockExtraHtml = adjustedMinStock !== prod.minStock 
+                        ? '<span class="text-blue-500">(原 ' + prod.minStock + ')</span>' 
+                        : '';
 
                     productsHtml += `
                         <div class="product-item flex items-center justify-between p-3 border-b border-slate-50 last:border-none transition-colors duration-300" data-prod-name="${escapeHtml(prod.name)}">
                             <div>
                                 <div class="prod-title text-sm font-medium text-slate-700">${escapeHtml(prod.name)}</div>
-                                <div class="text-[10px] text-slate-400">最低庫存: ${prod.minStock}</div>
+                                <div class="text-[10px] text-slate-400">最低庫存: ${adjustedMinStock} ${minStockExtraHtml}</div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <input type="number" 
                                     inputmode="decimal" 
                                     step="any"
                                     data-prod-id="${prod.id}"
-                                    data-min-stock="${prod.minStock}"
+                                    data-min-stock="${adjustedMinStock}"
                                     value="${val}" 
                                     ${isReadOnly ? 'disabled' : ''} 
                                     oninput="onInputStock(this)"
@@ -888,7 +894,6 @@ function setupDatabaseListeners() {
                 container.appendChild(card);
             });
         }
-
         function onInputStock(input) {
             updateSyncStatus(false);
             const minStock = Number(input.dataset.minStock);
@@ -1806,10 +1811,12 @@ function openSupplierModal(supplierId = null) {
 
                         if (stockVal !== null && stockVal !== undefined && stockVal.toString().trim() !== '') {
                             const currentNum = Number(stockVal);
-                            const minNum = Number(prod.minStock);
-                            if (!isNaN(currentNum) && currentNum <= minNum) {
-                                lowStockProducts.push({ name: prod.name, current: currentNum, min: minNum });
-                            }
+const targetDateVal = document.getElementById('targetDate').value;
+const summaryTargetDate = new Date(targetDateVal + 'T00:00:00+08:00');
+const minNum = Number(getAdjustedMinStock(sup, prod, summaryTargetDate)); // 改為帶入動態倍率後的門檻
+if (!isNaN(currentNum) && currentNum <= minNum) {
+    lowStockProducts.push({ name: prod.name, current: currentNum, min: minNum });
+}
                         }
                     });
 
@@ -1840,14 +1847,19 @@ function openSupplierModal(supplierId = null) {
                 });
             }
 
-            if (!hasItemsToOrder) {
-                container.innerHTML = `
-                    <div class="text-center py-8 text-slate-400">
-                        <i class="fas fa-check-circle text-emerald-500 text-3xl mb-2 block"></i>
-                        目前沒有低於最低庫存的商品，無需叫貨！
-                    </div>
-                `;
-            }
+if (!hasItemsToOrder) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-400">
+                <i class="fas fa-box-open text-4xl mb-2"></i>
+                <p class="text-sm">目前沒有低於最低庫存需要叫貨的品項</p>
+            </div>`;
+    }
+
+    document.getElementById('orderModal').classList.remove('hidden');
+}
+
+// 初始化執行
+init();
 
             const modal = document.getElementById('orderModal');
             if (modal) modal.classList.remove('hidden');
@@ -2004,6 +2016,44 @@ function handleAccDateChange() {
     
     return baseMinStock;
 }
+
+function getAdjustedMinStock(sup, prod, targetDateObj) {
+    if (!sup.multiplierDays || !sup.multiplierDays.includes(targetDateObj.getDay())) {
+        return prod.minStock;
+    }
+    const val = sup.multiplierVal !== undefined && sup.multiplierVal !== null ? Number(sup.multiplierVal) : 1;
+    return Math.round(prod.minStock * val);
+}
+// 【新增】計算調整後的最低庫存（支援特定星期倍率）
+function getAdjustedMinStock(sup, prod, targetDateObj) {
+    const dayOfWeek = targetDateObj.getDay();
+    let minStock = prod.minStock !== undefined ? prod.minStock : 0;
+    
+    if (sup.multiplierDays && sup.multiplierDays.includes(dayOfWeek)) {
+        const multVal = sup.multiplierVal !== undefined ? Number(sup.multiplierVal) : 1;
+        minStock = Math.round(minStock * multVal);
+    }
+    return minStock;
+}
+
+// 【新增】切換歷史帳務解鎖補登狀態
+let isForceEditable = false;
+function toggleAccountingEdit() {
+    isForceEditable = !isForceEditable;
+    const btn = document.getElementById('unlockEditBtn');
+    if (isForceEditable) {
+        btn.innerHTML = '<i class="fas fa-lock-open text-amber-600"></i> 已解鎖補登';
+        btn.className = 'text-xs text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 font-medium transition flex items-center gap-1';
+        showToast('已解鎖歷史帳務補登');
+    } else {
+        btn.innerHTML = '<i class="fas fa-unlock"></i> 解鎖補登';
+        btn.className = 'text-xs text-amber-700 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 font-medium transition flex items-center gap-1';
+        showToast('已鎖定唯讀狀態');
+    }
+    loadAccountingData();
+}
 	</script>
+	
+	
 </body>
 </html>
