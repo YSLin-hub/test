@@ -476,12 +476,21 @@
     <textarea id="supplierModalNote" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" rows="2"></textarea>
 </div>
 
-<!-- 【新增】特定星期調整倍率設定區塊 -->
+<!-- 【修改後】單一倍率設定與 Modal 容器排版優化 -->
 <div class="mb-4">
-    <label class="block text-xs font-semibold text-slate-600 mb-1.5">特定星期調整倍率設定</label>
-    <div id="supplierMultiplierDays" class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-        <!-- 動態渲染一週七天勾選框與輸入框 -->
+    <label class="block text-xs font-semibold text-slate-600 mb-1.5">特定叫貨日調整倍率設定</label>
+    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+        <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+            <input type="checkbox" id="m_single_chk" onchange="toggleSingleMultiplierInput()" class="rounded text-blue-600 focus:ring-blue-500">
+            <span>啟用特定倍率</span>
+        </label>
+        <div class="flex items-center gap-1">
+            <span class="text-[11px] text-slate-400">倍率:</span>
+            <input type="number" inputmode="decimal" step="any" id="m_single_val" disabled placeholder="例: 1.5" 
+                class="w-28 px-2 py-1 text-xs text-right bg-slate-100 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400 font-semibold">
+        </div>
     </div>
+    <p class="text-[10px] text-slate-400 mt-1">勾選並填入倍率後，該廠商在系統計算叫貨量時將以此倍率進行調整。</p>
 </div>
             <div class="p-4 border-t border-slate-100 flex gap-2 justify-between items-center">
                 <button id="modalDeleteSupplierBtn" onclick="deleteCurrentSupplier()" class="py-2.5 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-1 transition">
@@ -1527,21 +1536,20 @@ function openSupplierModal(supplierId = null) {
             
             document.getElementById('modalSupplierId').value = supplierId || '';
             document.getElementById('modalSupplierName').value = '';
-            document.getElementById('supplierModalNote').value = ''; // 帶入備註
+            document.getElementById('supplierModalNote').value = '';
             
             const checkboxes = document.querySelectorAll('#modalWeekdays input[type="checkbox"]');
             checkboxes.forEach(cb => cb.checked = false);
             container.innerHTML = '';
 
-            // 渲染一週七天的倍率設定介面 (inputmode="decimal" 讓手機版自動跳出數字鍵盤)
-            const multiplierContainer = document.getElementById('supplierMultiplierDays');
-            const dayLabels = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-            let multiplierHtml = '';
-            for (let i = 1; i <= 6; i++) { // 一到六
-                multiplierHtml += createMultiplierRowHtml(i, dayLabels[i]);
+            // 重置單一倍率欄位
+            const singleChk = document.getElementById('m_single_chk');
+            const singleVal = document.getElementById('m_single_val');
+            if (singleChk) singleChk.checked = false;
+            if (singleVal) {
+                singleVal.value = '';
+                singleVal.disabled = true;
             }
-            multiplierHtml += createMultiplierRowHtml(0, dayLabels[0]); // 週日排最後
-            multiplierContainer.innerHTML = multiplierHtml;
 
             if (supplierId) {
                 title.innerText = '編輯廠商';
@@ -1554,16 +1562,23 @@ function openSupplierModal(supplierId = null) {
                         if (sup.days && sup.days.includes(Number(cb.value))) cb.checked = true;
                     });
                     
-                    // 帶入已儲存的倍率資料
+                    // 帶入舊資料或單一倍率設定（相容性處理：若原本是物件則取第一個或特定數值，或直接讀取新結構）
                     if (sup.multiplierDays) {
-                        for (let day in sup.multiplierDays) {
-                            const chk = document.getElementById(`m_chk_${day}`);
-                            const input = document.getElementById(`m_val_${day}`);
-                            if (chk && input) {
-                                chk.checked = true;
-                                input.value = sup.multiplierDays[day];
-                                input.disabled = false;
+                        // 假設您儲存結構改為單一數值或保留物件形式，這裡以單一數值為例
+                        const keys = Object.keys(sup.multiplierDays);
+                        if (keys.length > 0) {
+                            const firstVal = sup.multiplierDays[keys[0]];
+                            if (singleChk && singleVal) {
+                                singleChk.checked = true;
+                                singleVal.disabled = false;
+                                singleVal.value = firstVal;
                             }
+                        }
+                    } else if (sup.multiplier !== undefined) {
+                        if (singleChk && singleVal && sup.multiplier) {
+                            singleChk.checked = true;
+                            singleVal.disabled = false;
+                            singleVal.value = sup.multiplier;
                         }
                     }
 
@@ -1576,6 +1591,18 @@ function openSupplierModal(supplierId = null) {
             }
 
             modal.classList.remove('hidden');
+        }
+
+        function toggleSingleMultiplierInput() {
+            const chk = document.getElementById('m_single_chk');
+            const input = document.getElementById('m_single_val');
+            if (chk.checked) {
+                input.disabled = false;
+                input.focus();
+            } else {
+                input.disabled = true;
+                input.value = '';
+            }
         }
 
         // 輔助產生星期倍率列的 HTML
@@ -1652,16 +1679,14 @@ function openSupplierModal(supplierId = null) {
             document.querySelectorAll('#modalWeekdays input[type="checkbox"]:checked').forEach(cb => days.push(Number(cb.value)));
             if (days.length === 0) { alert('請至少選擇一天可叫貨星期'); return; }
 
-            // 收集特定星期調整倍率
-            const multiplierDays = {};
-            for (let i = 0; i <= 6; i++) {
-                const chk = document.getElementById(`m_chk_${i}`);
-                const input = document.getElementById(`m_val_${i}`);
-                if (chk && chk.checked && input && input.value.trim() !== '') {
-                    const val = Number(input.value);
-                    if (!isNaN(val)) {
-                        multiplierDays[i] = val;
-                    }
+            // 收集單一倍率設定
+            const singleChk = document.getElementById('m_single_chk');
+            const singleVal = document.getElementById('m_single_val');
+            let multiplier = null;
+            if (singleChk && singleChk.checked && singleVal && singleVal.value.trim() !== '') {
+                const val = Number(singleVal.value);
+                if (!isNaN(val)) {
+                    multiplier = val;
                 }
             }
 
@@ -1688,7 +1713,7 @@ function openSupplierModal(supplierId = null) {
                 name,
                 note,
                 days,
-                multiplierDays,
+                multiplier: multiplier, // 儲存單一倍率
                 products
             };
 
