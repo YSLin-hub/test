@@ -469,29 +469,57 @@
                     </div>
                     <div id="modalProductsContainer" class="space-y-2"></div>
                 </div>
-            </div>
+            
+
+<!-- 【修改後】單一倍率設定與 Modal 容器排版優化 -->
+<!-- 【新增】特定星期調整倍率設定區塊 -->
+<div class="mb-4">
+    <label class="block text-xs font-semibold text-slate-600 mb-1.5">特定星期調整倍率設定</label>
+    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+        <div id="multiplierWeekdays" class="grid grid-cols-7 gap-1.5">
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="1" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">一</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="2" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">二</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="3" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">三</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="4" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">四</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="5" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">五</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="6" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">六</span>
+            </label>
+            <label class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-blue-500 transition-all">
+                <input type="checkbox" value="0" class="rounded text-blue-600 focus:ring-blue-500 mb-1">
+                <span class="text-xs font-medium text-slate-700">日</span>
+            </label>
+        </div>
+        <div class="flex items-center justify-between gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
+            <span class="text-xs font-medium text-slate-700">套用調整倍率:</span>
+            <input type="number" inputmode="decimal" step="any" id="supplierMultiplierVal" placeholder="例: 1.5 (不填或空白則為 1)" 
+                class="w-32 px-2.5 py-1 text-xs text-right bg-slate-50 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-blue-500 font-semibold">
+        </div>
+    </div>
+</div>
 			<!-- 廠商編輯 Modal 內的備註說明下方 -->
 <div class="mb-4">
     <label class="block text-xs font-semibold text-slate-600 mb-1.5">備註說明</label>
     <textarea id="supplierModalNote" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" rows="2"></textarea>
 </div>
-
-<!-- 【修改後】單一倍率設定與 Modal 容器排版優化 -->
-<div class="mb-4">
-    <label class="block text-xs font-semibold text-slate-600 mb-1.5">特定叫貨日調整倍率設定</label>
-    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
-        <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-            <input type="checkbox" id="m_single_chk" onchange="toggleSingleMultiplierInput()" class="rounded text-blue-600 focus:ring-blue-500">
-            <span>啟用特定倍率</span>
-        </label>
-        <div class="flex items-center gap-1">
-            <span class="text-[11px] text-slate-400">倍率:</span>
-            <input type="number" inputmode="decimal" step="any" id="m_single_val" disabled placeholder="例: 1.5" 
-                class="w-28 px-2 py-1 text-xs text-right bg-slate-100 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400 font-semibold">
-        </div>
-    </div>
-    <p class="text-[10px] text-slate-400 mt-1">勾選並填入倍率後，該廠商在系統計算叫貨量時將以此倍率進行調整。</p>
 </div>
+
             <div class="p-4 border-t border-slate-100 flex gap-2 justify-between items-center">
                 <button id="modalDeleteSupplierBtn" onclick="deleteCurrentSupplier()" class="py-2.5 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-1 transition">
                     <i class="fas fa-trash"></i> 刪除廠商
@@ -1529,69 +1557,56 @@ function loadAccountingData() {
         }
 
 function openSupplierModal(supplierId = null) {
-            const modal = document.getElementById('supplierModal');
-            const title = document.getElementById('modalTitle');
-            const container = document.getElementById('modalProductsContainer');
-            const deleteBtn = document.getElementById('modalDeleteSupplierBtn');
-            
-            document.getElementById('modalSupplierId').value = supplierId || '';
-            document.getElementById('modalSupplierName').value = '';
-            document.getElementById('supplierModalNote').value = '';
-            
-            const checkboxes = document.querySelectorAll('#modalWeekdays input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = false);
-            container.innerHTML = '';
+    const modal = document.getElementById('supplierModal');
+    const title = document.getElementById('modalTitle');
+    const container = document.getElementById('modalProductsContainer');
+    const deleteBtn = document.getElementById('modalDeleteSupplierBtn');
+    
+    document.getElementById('modalSupplierId').value = supplierId || '';
+    document.getElementById('modalSupplierName').value = '';
+    document.getElementById('supplierModalNote').value = '';
+    
+    const checkboxes = document.querySelectorAll('#modalWeekdays input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
 
-            // 重置單一倍率欄位
-            const singleChk = document.getElementById('m_single_chk');
-            const singleVal = document.getElementById('m_single_val');
-            if (singleChk) singleChk.checked = false;
-            if (singleVal) {
-                singleVal.value = '';
-                singleVal.disabled = true;
+    // 重置倍率星期方塊與倍率輸入框
+    const mCheckboxes = document.querySelectorAll('#multiplierWeekdays input[type="checkbox"]');
+    mCheckboxes.forEach(cb => cb.checked = false);
+    document.getElementById('supplierMultiplierVal').value = '';
+
+    container.innerHTML = '';
+
+    if (supplierId) {
+        title.innerText = '編輯廠商';
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+        const sup = config.suppliers.find(s => s.id === supplierId);
+        if (sup) {
+            document.getElementById('modalSupplierName').value = sup.name;
+            document.getElementById('supplierModalNote').value = sup.note || '';
+            checkboxes.forEach(cb => {
+                if (sup.days && sup.days.includes(Number(cb.value))) cb.checked = true;
+            });
+            
+            // 帶入已儲存的倍率星期與數值
+            if (sup.multiplierDays) {
+                mCheckboxes.forEach(cb => {
+                    if (sup.multiplierDays.includes(Number(cb.value))) cb.checked = true;
+                });
+            }
+            if (sup.multiplierVal !== undefined && sup.multiplierVal !== null) {
+                document.getElementById('supplierMultiplierVal').value = sup.multiplierVal;
             }
 
-            if (supplierId) {
-                title.innerText = '編輯廠商';
-                if (deleteBtn) deleteBtn.classList.remove('hidden');
-                const sup = config.suppliers.find(s => s.id === supplierId);
-                if (sup) {
-                    document.getElementById('modalSupplierName').value = sup.name;
-                    document.getElementById('supplierModalNote').value = sup.note || '';
-                    checkboxes.forEach(cb => {
-                        if (sup.days && sup.days.includes(Number(cb.value))) cb.checked = true;
-                    });
-                    
-                    // 帶入舊資料或單一倍率設定（相容性處理：若原本是物件則取第一個或特定數值，或直接讀取新結構）
-                    if (sup.multiplierDays) {
-                        // 假設您儲存結構改為單一數值或保留物件形式，這裡以單一數值為例
-                        const keys = Object.keys(sup.multiplierDays);
-                        if (keys.length > 0) {
-                            const firstVal = sup.multiplierDays[keys[0]];
-                            if (singleChk && singleVal) {
-                                singleChk.checked = true;
-                                singleVal.disabled = false;
-                                singleVal.value = firstVal;
-                            }
-                        }
-                    } else if (sup.multiplier !== undefined) {
-                        if (singleChk && singleVal && sup.multiplier) {
-                            singleChk.checked = true;
-                            singleVal.disabled = false;
-                            singleVal.value = sup.multiplier;
-                        }
-                    }
-
-                    (sup.products || []).forEach(p => addModalProductRow(p.name, p.minStock, p.id));
-                }
-            } else {
-                title.innerText = '新增廠商';
-                if (deleteBtn) deleteBtn.classList.add('hidden');
-                addModalProductRow('', 1, '');
-            }
-
-            modal.classList.remove('hidden');
+            (sup.products || []).forEach(p => addModalProductRow(p.name, p.minStock, p.id));
         }
+    } else {
+        title.innerText = '新增廠商';
+        if (deleteBtn) deleteBtn.classList.add('hidden');
+        addModalProductRow('', 1, '');
+    }
+
+    modal.classList.remove('hidden');
+}
 
         function toggleSingleMultiplierInput() {
             const chk = document.getElementById('m_single_chk');
@@ -1670,65 +1685,62 @@ function openSupplierModal(supplierId = null) {
         }
 
 		function saveSupplierConfig() {
-            const id = document.getElementById('modalSupplierId').value;
-            const name = document.getElementById('modalSupplierName').value.trim();
-            const note = document.getElementById('supplierModalNote').value.trim();
-            if (!name) { alert('請輸入廠商名稱'); return; }
+    const id = document.getElementById('modalSupplierId').value;
+    const name = document.getElementById('modalSupplierName').value.trim();
+    const note = document.getElementById('supplierModalNote').value.trim();
+    if (!name) { alert('請輸入廠商名稱'); return; }
 
-            const days = [];
-            document.querySelectorAll('#modalWeekdays input[type="checkbox"]:checked').forEach(cb => days.push(Number(cb.value)));
-            if (days.length === 0) { alert('請至少選擇一天可叫貨星期'); return; }
+    const days = [];
+    document.querySelectorAll('#modalWeekdays input[type="checkbox"]:checked').forEach(cb => days.push(Number(cb.value)));
+    if (days.length === 0) { alert('請至少選擇一天可叫貨星期'); return; }
 
-            // 收集單一倍率設定
-            const singleChk = document.getElementById('m_single_chk');
-            const singleVal = document.getElementById('m_single_val');
-            let multiplier = null;
-            if (singleChk && singleChk.checked && singleVal && singleVal.value.trim() !== '') {
-                const val = Number(singleVal.value);
-                if (!isNaN(val)) {
-                    multiplier = val;
-                }
-            }
+    // 收集倍率星期勾選與倍率數值
+    const multiplierDays = [];
+    document.querySelectorAll('#multiplierWeekdays input[type="checkbox"]:checked').forEach(cb => multiplierDays.push(Number(cb.value)));
+    
+    const mValInput = document.getElementById('supplierMultiplierVal').value.trim();
+    const multiplierVal = mValInput !== '' ? Number(mValInput) : 1;
 
-            const products = [];
-            const rows = document.querySelectorAll('#modalProductsContainer .product-row');
-            rows.forEach((row, idx) => {
-                const pName = row.querySelector('.prod-name').value.trim();
-                const pMin = row.querySelector('.prod-min').value;
-                const existingId = row.dataset.prodId;
-                if (pName) {
-                    products.push({
-                        id: existingId ? existingId : ('p_' + Date.now() + '_' + idx),
-                        name: pName,
-                        minStock: pMin !== '' ? Number(pMin) : 0
-                    });
-                }
-            });
-
-            if (products.length === 0) { alert('請至少新增一項商品'); return; }
-            if (!config.suppliers) config.suppliers = [];
-
-            const supplierData = {
-                id: id ? id : ('sup_' + Date.now()),
-                name,
-                note,
-                days,
-                multiplier: multiplier, // 儲存單一倍率
-                products
-            };
-
-            if (id) {
-                const index = config.suppliers.findIndex(s => s.id === id);
-                if (index !== -1) config.suppliers[index] = supplierData;
-            } else {
-                config.suppliers.push(supplierData);
-            }
-
-            db.ref('config').set(config).then(() => {
-                closeSupplierModal();
-                showToast('雲端設定已儲存');
+    const products = [];
+    const rows = document.querySelectorAll('#modalProductsContainer .product-row');
+    rows.forEach((row, idx) => {
+        const pName = row.querySelector('.prod-name').value.trim();
+        const pMin = row.querySelector('.prod-min').value;
+        const existingId = row.dataset.prodId;
+        if (pName) {
+            products.push({
+                id: existingId ? existingId : ('p_' + Date.now() + '_' + idx),
+                name: pName,
+                minStock: pMin !== '' ? Number(pMin) : 0
             });
         }
+    });
+
+    if (products.length === 0) { alert('請至少新增一項商品'); return; }
+    if (!config.suppliers) config.suppliers = [];
+
+    const supplierData = {
+        id: id ? id : ('sup_' + Date.now()),
+        name,
+        note,
+        days,
+        multiplierDays,
+        multiplierVal,
+        products
+    };
+
+    if (id) {
+        const index = config.suppliers.findIndex(s => s.id === id);
+        if (index !== -1) config.suppliers[index] = supplierData;
+    } else {
+        config.suppliers.push(supplierData);
+    }
+
+    db.ref('config').set(config).then(() => {
+        closeSupplierModal();
+        showToast('雲端設定已儲存');
+    });
+}
 
         function editSupplier(id) { openSupplierModal(id); }
 
@@ -1915,6 +1927,7 @@ function formatOrderText(text) {
         // 略過標題與不需要的資訊
         if (line.includes('項需叫貨') || line.includes('目前:')) {
             if (line.includes('目前:')) {
+                // 修正：將原本的 current: 改為目前: 以符合實際文字
                 let match = line.match(/目前:\s*([^\s(]+)/);
                 if (match && currentItem) {
                     result.push(`${currentItem} 目前: ${match[1]}`);
@@ -1980,6 +1993,17 @@ function handleAccDateChange() {
     loadAccountingData();
 }	
 	
+	function getAdjustedMinStock(supplier, product, targetDate = new Date()) {
+    const baseMinStock = product.minStock || 0;
+    const currentDay = targetDate.getDay(); // 0(週日) 到 6(週六)
+    
+    if (supplier.multiplierDays && supplier.multiplierDays.includes(currentDay)) {
+        const multiplier = Number(supplier.multiplierVal) || 1;
+        return Math.round(baseMinStock * multiplier * 10) / 10;
+    }
+    
+    return baseMinStock;
+}
 	</script>
 </body>
 </html>
