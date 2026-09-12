@@ -105,7 +105,10 @@
                     <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
 <!-- 叫貨清單 Modal 底部按鈕區 -->
 <div class="modal-footer flex justify-between items-center mt-4" style="padding: 15px; text-align: right; border-top: 1px solid #ddd;">
-    <button onclick="copyOrderText()" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">複製文字</button>
+    <div>
+        <button onclick="copyOrderText()" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">複製文字</button>
+        <button onclick="shareOrderLine()" style="padding: 8px 16px; background-color: #06C755; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">傳送到 Line</button>
+    </div>
     <button onclick="closeOrderModal()" style="padding: 8px 16px; background-color: #ccc; color: black; border: none; border-radius: 4px; cursor: pointer;">關閉</button>
 </div>
                 </div>
@@ -139,6 +142,10 @@
                         <button onclick="goToTodayAcc()" class="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md font-medium transition">
                             回到今天
                         </button>
+						<!-- 【新增】解鎖補登按鈕，樣式與唯讀標籤保持一致的微型按鈕風格 -->
+						<button id="unlockEditBtn" class="hidden text-xs text-amber-700 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 font-medium transition flex items-center gap-1" onclick="toggleAccountingEdit()">
+						<i class="fas fa-unlock"></i> 解鎖補登
+						</button>
                         <div id="accReadOnlyBadge" class="hidden px-2 py-0.5 bg-amber-50 text-amber-700 text-[11px] font-medium rounded-md border border-amber-200 flex items-center gap-1">
                             <i class="fas fa-lock text-amber-500"></i> 唯讀
                         </div>
@@ -148,7 +155,7 @@
                     <button onclick="changeAccDate(-1)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-md transition shadow-xs">
                         <i class="fas fa-chevron-left text-xs"></i>
                     </button>
-                    <input type="date" id="accTargetDate" onchange="loadAccountingData()" class="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none text-center">
+                    <input type="date" id="accTargetDate" onchange="handleAccDateChange()" class="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none text-center">
                     <button onclick="changeAccDate(1)" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-md transition shadow-xs">
                         <i class="fas fa-chevron-right text-xs"></i>
                     </button>
@@ -527,6 +534,8 @@
         let currentDayLogs = {};
         let currentAccData = {};
         let currentTab = 'today';
+		let isForceEditable = false;
+
 
         // 儲存當前 logs 監聽器 Ref，切換日期時需先取消監聽
         let currentLogsRef = null;
@@ -569,30 +578,44 @@
             document.getElementById('targetDate').value = todayStr;
             document.getElementById('accTargetDate').value = todayStr;
 
-            setInterval(autoSaveProcess, 60000);
-        }
+            setInterval(autoSaveProcess, 600000);
 
-        function setupDatabaseListeners() {
-            db.ref('config').on('value', (snapshot) => {
-                const val = snapshot.val();
-                if (val) {
-                    config.suppliers = val.suppliers || DEFAULT_SUPPLIERS;
-                    config.operators = val.operators || DEFAULT_OPERATORS;
-                } else {
-                    config = { suppliers: DEFAULT_SUPPLIERS, operators: DEFAULT_OPERATORS };
-                    if (auth.currentUser && !auth.currentUser.isAnonymous) {
-                        db.ref('config').set(config);
-                    }
+            // 【新增】監聽手機切換背景或電腦切換分頁、關閉頁面事件
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    triggerAutoSaveOnLeave();
                 }
-                renderTodayView();
-                renderSettingsView();
-                renderOperatorDropdowns();
-                updateSyncStatus(true);
             });
 
-            loadDateData();
-            loadAccountingData();
+            // 適用於電腦關閉分頁或重新整理前的最後儲存
+            window.addEventListener('beforeunload', () => {
+                triggerAutoSaveOnLeave();
+            });
         }
+
+function setupDatabaseListeners() {
+    // 監聽並從 Firebase Realtime Database 載入全域配置
+    db.ref('config').on('value', (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            config.suppliers = val.suppliers || DEFAULT_SUPPLIERS;
+            config.operators = val.operators || DEFAULT_OPERATORS;
+        } else {
+            config = { suppliers: DEFAULT_SUPPLIERS, operators: DEFAULT_OPERATORS };
+            if (auth.currentUser && !auth.currentUser.isAnonymous) {
+                db.ref('config').set(config);
+            }
+        }
+        renderTodayView();
+        renderSettingsView();
+        renderOperatorDropdowns();
+        updateSyncStatus(true);
+    });
+
+    // 初始化載入對應日期的叫貨庫存與帳務資料
+    loadDateData();
+    loadAccountingData();
+}
 
         function updateAuthUI() {
             const settingsTabBtn = document.getElementById('tabSettingsBtn');
@@ -685,18 +708,20 @@
         }
 
         function loadDateData() {
-            const dateVal = document.getElementById('targetDate').value;
-            
-            if (currentLogsRef) {
-                currentLogsRef.off();
-            }
+    const dateVal = document.getElementById('targetDate').value;
 
-            currentLogsRef = db.ref('logs/' + dateVal);
-            currentLogsRef.on('value', (snapshot) => {
-                currentDayLogs = snapshot.val() || {};
-                renderTodayView();
-            });
-        }
+    // 切換日期前先卸載舊的 Firebase 監聽器，避免記憶體洩漏
+    if (currentLogsRef) {
+        currentLogsRef.off();
+    }
+
+    // 改用 Firebase Realtime Database 讀取指定日期的叫貨數值記錄
+    currentLogsRef = db.ref('logs/' + dateVal);
+    currentLogsRef.on('value', (snapshot) => {
+        currentDayLogs = snapshot.val() || {};
+        renderTodayView();
+    });
+}
 
         function switchTab(tab) {
             if (tab === 'settings') {
@@ -881,43 +906,57 @@
             loadAccountingData();
         }
 
-        function loadAccountingData() {
-            const dateVal = document.getElementById('accTargetDate').value;
-            const todayStr = getTodayString();
-            const isReadOnly = dateVal < todayStr; 
-            const prevDateVal = getPrevDateString(dateVal);
+function loadAccountingData() {
+    const dateVal = document.getElementById('accTargetDate').value;
+    const todayStr = getTodayString();
+    
+    // 【修改】只有在「選過去日期」且「尚未手動解鎖」時才為唯讀
+    const isHistorical = dateVal < todayStr;
+    const isReadOnly = isHistorical && !isForceEditable; 
+    const prevDateVal = getPrevDateString(dateVal);
 
-            const accBadge = document.getElementById('accReadOnlyBadge');
-            const accSaveBtn = document.getElementById('accSaveBtn');
-            const floatSaveBtnAcc = document.getElementById('floatSaveBtnAcc');
+    const accBadge = document.getElementById('accReadOnlyBadge');
+    const accSaveBtn = document.getElementById('accSaveBtn');
+    const floatSaveBtnAcc = document.getElementById('floatSaveBtnAcc');
+    
+    // 【新增】取得解鎖按鈕 DOM
+    const unlockEditBtn = document.getElementById('unlockEditBtn');
 
-            if (accBadge) accBadge.classList.toggle('hidden', !isReadOnly);
-            if (accSaveBtn) accSaveBtn.classList.toggle('hidden', isReadOnly);
-            if (floatSaveBtnAcc) floatSaveBtnAcc.classList.toggle('hidden', isReadOnly);
+    // 顯示「唯讀」標籤（只有選歷史日期且沒解鎖時才顯示）
+    if (accBadge) accBadge.classList.toggle('hidden', !isReadOnly);
+    
+    // 【新增】控制「解鎖補登」按鈕：只有在「選歷史日期」時才出現，當天或未來則隱藏
+    if (unlockEditBtn) {
+        unlockEditBtn.classList.toggle('hidden', !isHistorical);
+    }
 
-            db.ref('accounting/' + dateVal).once('value', (snapshot) => {
-                currentAccData = snapshot.val() || {};
+    // 儲存按鈕的顯示控制（若為唯讀則隱藏，可編輯則顯示）
+    if (accSaveBtn) accSaveBtn.classList.toggle('hidden', isReadOnly);
+    if (floatSaveBtnAcc) floatSaveBtnAcc.classList.toggle('hidden', isReadOnly);
 
-                if (currentAccData.stmt_prev_bal === undefined || currentAccData.stmt_prev_bal === '') {
-                    db.ref('accounting/' + prevDateVal).once('value', (prevSnap) => {
-                        const prevData = prevSnap.val() || {};
-                        currentAccData.stmt_prev_bal = prevData.stmt_balance || 0;
-                        fillAccountingForm(currentAccData);
-                        calcAccounting();
-                    });
-                } else {
-                    fillAccountingForm(currentAccData);
-                    calcAccounting();
-                }
+    db.ref('accounting/' + dateVal).once('value', (snapshot) => {
+        currentAccData = snapshot.val() || {};
 
-                const accInputs = document.querySelectorAll('#tabAccounting input, #tabAccounting textarea, #tabAccounting select');
-                accInputs.forEach(input => {
-                    if (!input.readOnly) {
-                        input.disabled = isReadOnly;
-                    }
-                });
+        if (currentAccData.stmt_prev_bal === undefined || currentAccData.stmt_prev_bal === '') {
+            db.ref('accounting/' + prevDateVal).once('value', (prevSnap) => {
+                const prevData = prevSnap.val() || {};
+                currentAccData.stmt_prev_bal = prevData.stmt_balance || 0;
+                fillAccountingForm(currentAccData);
+                calcAccounting();
             });
+        } else {
+            fillAccountingForm(currentAccData);
+            calcAccounting();
         }
+
+        const accInputs = document.querySelectorAll('#tabAccounting input, #tabAccounting textarea, #tabAccounting select');
+        accInputs.forEach(input => {
+            if (!input.readOnly) {
+                input.disabled = isReadOnly;
+            }
+        });
+    });
+}
 
         function fillAccountingForm(data) {
             const fields = [
@@ -985,53 +1024,53 @@
         }
 
         function saveAccountingData(showNotification = true) {
-            const dateVal = document.getElementById('accTargetDate').value;
-            const getVal = id => document.getElementById(id).value;
+			const dateVal = document.getElementById('accTargetDate').value;
+			const getVal = id => document.getElementById(id).value;
+			const accData = {
+			am_operator: getVal('am_operator'),
+			am_rev: getVal('am_rev'),
+			am_pay: getVal('am_pay'),
+			am_ticket: getVal('am_ticket'),
+			am_sell_ticket: getVal('am_sell_ticket'),
+			am_exp: getVal('am_exp'),
+			am_cash: getVal('am_cash'),
+			am_rest_ticket: getVal('am_rest_ticket'),
+			am_exp_note: getVal('am_exp_note'),
 
-            const accData = {
-                am_operator: getVal('am_operator'),
-                am_rev: getVal('am_rev'),
-                am_pay: getVal('am_pay'),
-                am_ticket: getVal('am_ticket'),
-                am_sell_ticket: getVal('am_sell_ticket'),
-                am_exp: getVal('am_exp'),
-                am_cash: getVal('am_cash'),
-                am_rest_ticket: getVal('am_rest_ticket'),
-                am_exp_note: getVal('am_exp_note'),
+			pm_operator: getVal('pm_operator'),
+			pm_rev: getVal('pm_rev'),
+			pm_pay: getVal('pm_pay'),
+			pm_ticket: getVal('pm_ticket'),
+			pm_sell_ticket: getVal('pm_sell_ticket'),
+			pm_exp: getVal('pm_exp'),
+			pm_cash: getVal('pm_cash'),
+			pm_rest_ticket: getVal('pm_rest_ticket'),
+			pm_exp_note: getVal('pm_exp_note'),
 
-                pm_operator: getVal('pm_operator'),
-                pm_rev: getVal('pm_rev'),
-                pm_pay: getVal('pm_pay'),
-                pm_ticket: getVal('pm_ticket'),
-                pm_sell_ticket: getVal('pm_sell_ticket'),
-                pm_exp: getVal('pm_exp'),
-                pm_cash: getVal('pm_cash'),
-                pm_rest_ticket: getVal('pm_rest_ticket'),
-                pm_exp_note: getVal('pm_exp_note'),
+			day_rev: getVal('day_rev'),
+			day_pay: getVal('day_pay'),
+			day_ticket: getVal('day_ticket'),
+			day_sell_ticket: getVal('day_sell_ticket'),
+			day_exp: getVal('day_exp'),
+			day_cash: getVal('day_cash'),
+			day_farm: getVal('day_farm'),
 
-                day_rev: getVal('day_rev'),
-                day_pay: getVal('day_pay'),
-                day_ticket: getVal('day_ticket'),
-                day_sell_ticket: getVal('day_sell_ticket'),
-                day_exp: getVal('day_exp'),
-                day_cash: getVal('day_cash'),
-                day_farm: getVal('day_farm'),
+			stmt_cash: getVal('stmt_cash'),
+			stmt_farm: getVal('stmt_farm'),
+			stmt_total_cash: getVal('stmt_total_cash'),
+			stmt_prev_bal: getVal('stmt_prev_bal'),
+			stmt_reserve: getVal('stmt_reserve'),
+			stmt_deposit: getVal('stmt_deposit'),
+			stmt_balance: getVal('stmt_balance'),
+			acc_remark: getVal('acc_remark')
+		};
 
-                stmt_cash: getVal('stmt_cash'),
-                stmt_farm: getVal('stmt_farm'),
-                stmt_total_cash: getVal('stmt_total_cash'),
-                stmt_prev_bal: getVal('stmt_prev_bal'),
-                stmt_reserve: getVal('stmt_reserve'),
-                stmt_deposit: getVal('stmt_deposit'),
-                stmt_balance: getVal('stmt_balance'),
-                acc_remark: getVal('acc_remark')
-            };
-
-            return db.ref('accounting/' + dateVal).set(accData).then(() => {
-                updateSyncStatus(true);
-                if (showNotification) showToast('帳務資料已同步至雲端！');
-            });
-        }
+		// 使用 Firebase Realtime Database 的 .set() 方法儲存指定日期的完整帳務報表
+		return db.ref('accounting/' + dateVal).set(accData).then(() => {
+        updateSyncStatus(true);
+        if (showNotification) showToast('帳務資料已同步至雲端！');
+		});
+		}
 
         function openAccSummaryModal() {
             const dateVal = document.getElementById('accTargetDate').value;
@@ -1288,19 +1327,20 @@
         }
 
         function collectAndUpload() {
-            const dateVal = document.getElementById('targetDate').value;
-            const inputs = document.querySelectorAll('.stock-input');
-            const updates = {};
+    const dateVal = document.getElementById('targetDate').value;
+    const inputs = document.querySelectorAll('.stock-input');
+    const updates = {};
 
-            inputs.forEach(input => {
-                const prodId = input.dataset.prodId;
-                updates[prodId] = input.value;
-            });
+    inputs.forEach(input => {
+        const prodId = input.dataset.prodId;
+        updates[prodId] = input.value;
+    });
 
-            db.ref('logs/' + dateVal).update(updates).then(() => {
-                updateSyncStatus(true);
-            });
-        }
+    // 利用 Firebase Realtime Database 的 .update() 將最新庫存叫貨量寫入對應日期節點
+    db.ref('logs/' + dateVal).update(updates).then(() => {
+        updateSyncStatus(true);
+    });
+}
 
         function renderSettingsView() {
             renderSettingsOperatorList();
@@ -1722,6 +1762,19 @@
 
         window.onload = init;
 		
+// 傳送到 Line
+function shareOrderLine() {
+    const container = document.getElementById('orderModalContent');
+    if (!container) return;
+    
+    const rawText = container.innerText;
+    const formattedText = formatOrderText(rawText);
+    
+    // 透過 Line 通用分享網址帶入格式化後的文字
+    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(formattedText)}`;
+    window.open(lineUrl, '_blank');
+}
+
 // 複製叫貨清單文字
 function copyOrderText() {
     const container = document.getElementById('orderModalContent');
@@ -1783,6 +1836,80 @@ function formatOrderText(text) {
 
     return result.join('\n');
 }
-    </script>
+    
+	// 【新增】全域變數：記錄目前是否已透過認證強制解鎖編輯
+let isForceEditable = false;
+
+// 【新增】點擊解鎖按鈕時執行的 Firebase 身分檢查函數
+function toggleAccountingEdit() {
+    const user = auth.currentUser;
+    
+    // 檢查是否為匿名登入或未登入
+    if (!user || user.isAnonymous) {
+        alert('權限不足：匿名訪客或未登入帳號無法解鎖補登！');
+        return;
+    }
+
+    isForceEditable = !isForceEditable;
+    const btn = document.getElementById('unlockEditBtn');
+    if (btn) {
+        btn.textContent = isForceEditable ? '🔒 鎖定唯讀' : '🔓 解鎖補登';
+        btn.classList.toggle('btn-outline-warning', !isForceEditable);
+        btn.classList.toggle('btn-warning', isForceEditable);
+    }
+    
+    // 重新載入帳務資料以套用解鎖後的編輯狀態
+    loadAccountingData();
+}
+function handleAccDateChange() {
+    // 重置解鎖狀態
+    isForceEditable = false;
+
+    // 恢復解鎖按鈕的預設文字與樣式
+    const unlockBtn = document.getElementById('unlockEditBtn');
+    if (unlockBtn) {
+        unlockBtn.textContent = '🔓 解鎖補登';
+        unlockBtn.classList.remove('btn-warning');
+        unlockBtn.classList.add('btn-outline-warning');
+    }
+
+    // 載入新日期的帳務資料與權限狀態
+    loadAccountingData();
+}	
+	// 【新增】當離開頁面或切換到背景時自動執行的儲存函式
+        function triggerAutoSaveOnLeave() {
+            const todayStr = getTodayString();
+            
+            // 如果目前停留在「今日叫貨」頁面且為當天，執行叫貨資料儲存
+            if (currentTab === 'today') {
+                const dateVal = document.getElementById('targetDate').value;
+                if (dateVal === todayStr) {
+                    collectAndUploadSilent();
+                }
+            } 
+            // 如果目前停留在「帳務」頁面且為當天，執行帳務資料儲存
+            else if (currentTab === 'accounting') {
+                const accDateVal = document.getElementById('accTargetDate').value;
+                if (accDateVal === todayStr) {
+                    saveAccountingData(false); // 傳入 false 避免跳出 Toast 影響體驗
+                }
+            }
+        }
+
+        // 【新增】靜默上傳叫貨資料（不跳出 Toast 提示，適合離開時執行）
+        function collectAndUploadSilent() {
+            const dateVal = document.getElementById('targetDate').value;
+            const inputs = document.querySelectorAll('.stock-input');
+            const updates = {};
+
+            inputs.forEach(input => {
+                const prodId = input.dataset.prodId;
+                updates[prodId] = input.value;
+            });
+
+            // 寫入 Firebase
+            db.ref('logs/' + dateVal).update(updates);
+        }
+	</script>
 </body>
 </html>
