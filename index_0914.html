@@ -314,7 +314,7 @@
                         <input type="number" inputmode="decimal" id="stmt_prev_bal" oninput="calcAccounting()" placeholder="0" class="w-full p-2 border border-emerald-700 rounded-lg bg-white text-slate-900 text-right font-bold disabled:bg-slate-200">
                     </div>
                     <div>
-                        <label class="text-amber-300 font-bold block mb-1">廠商預留金</label>
+                        <label class="text-amber-300 font-bold block mb-1">廠商預留金及非千鈔</label>
                         <input type="number" inputmode="decimal" id="stmt_reserve" oninput="calcAccounting()" placeholder="0" class="w-full p-2 border border-amber-400 rounded-lg bg-white text-slate-900 text-right font-bold disabled:bg-slate-200">
                     </div>
                     <div>
@@ -1008,19 +1008,9 @@ function loadAccountingData() {
             const stmt_prev_bal = getNum('stmt_prev_bal');
             const stmt_reserve = getNum('stmt_reserve');
 
-            // 1. 計算可用金額（不扣除預留金來計算自動整數存入金額）
-            const availableMoney = stmt_total_cash + stmt_prev_bal;
-            const autoDeposit = availableMoney > 0 ? Math.floor(availableMoney / 1000) * 1000 : 0;
-            
-            // 2. 讓使用者可以手動輸入存入金額，若未手動輸入則使用自動計算金額
-            const depositInputEl = document.getElementById('stmt_deposit');
-            let stmt_deposit = depositInputEl && depositInputEl.value !== '' ? Number(depositInputEl.value) : autoDeposit;
-            
-            // 3. 計算自動應存入金額與手動輸入金額的差額
-            const diff = autoDeposit - stmt_deposit;
-            
-            // 4. 計算最終餘額：加入預留金不消失的邏輯 (+ stmt_reserve)，並將存入金額手動調整的差額補回
-            const stmt_balance = stmt_total_cash + stmt_prev_bal - stmt_deposit - stmt_reserve + stmt_reserve + diff;
+            const availableMoney = stmt_total_cash + stmt_prev_bal - stmt_reserve;
+            const stmt_deposit = availableMoney > 0 ? Math.floor(availableMoney / 1000) * 1000 : 0;
+            const stmt_balance = stmt_total_cash + stmt_prev_bal - stmt_deposit + stmt_reserve;
 
             document.getElementById('stmt_cash').value = stmt_cash;
             document.getElementById('stmt_farm').value = stmt_farm;
@@ -1143,7 +1133,7 @@ function loadAccountingData() {
                     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-700">
                         <div>回收總現金: <span class="font-semibold">$${getVal('stmt_total_cash')}</span></div>
                         <div>前一日餘額: <span class="font-semibold">$${getVal('stmt_prev_bal')}</span></div>
-                        <div>廠商預留金: <span class="font-semibold text-amber-600">$${getVal('stmt_reserve')}</span></div>
+                        <div>廠商預留金及非千鈔: <span class="font-semibold text-amber-600">$${getVal('stmt_reserve')}</span></div>
                         <div>存入金額: <span class="font-bold text-emerald-700">$${getVal('stmt_deposit')}</span></div>
                         <div class="col-span-2 pt-1 border-t border-emerald-200/60 font-bold text-slate-800">
                             明日帶入餘額: <span class="text-amber-600">$${getVal('stmt_balance')}</span>
@@ -1247,7 +1237,7 @@ function loadAccountingData() {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 14px;">
                         <div>回收總現金: <span style="font-weight: 600;">$${getVal('stmt_total_cash')}</span></div>
                         <div>前一日餘額: <span style="font-weight: 600;">$${getVal('stmt_prev_bal')}</span></div>
-                        <div>廠商預留金: <span style="font-weight: 600; color: #d97706;">$${getVal('stmt_reserve')}</span></div>
+                        <div>廠商預留金及非千鈔: <span style="font-weight: 600; color: #d97706;">$${getVal('stmt_reserve')}</span></div>
                         <div>存入金額: <span style="font-weight: bold; color: #047857;">$${getVal('stmt_deposit')}</span></div>
                         <div style="grid-column: span 2; padding-top: 6px; border-top: 1px solid #a7f3d0; font-weight: bold; color: #1e293b;">
                             明日帶入餘額: <span style="color: #d97706;">$${getVal('stmt_balance')}</span>
