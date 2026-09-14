@@ -1010,7 +1010,7 @@ function loadAccountingData() {
 
             const availableMoney = stmt_total_cash + stmt_prev_bal - stmt_reserve;
             const stmt_deposit = availableMoney > 0 ? Math.floor(availableMoney / 1000) * 1000 : 0;
-            const stmt_balance = stmt_total_cash + stmt_prev_bal - stmt_deposit + stmt_reserve;
+            const stmt_balance = stmt_total_cash + stmt_prev_bal - stmt_deposit;
 
             document.getElementById('stmt_cash').value = stmt_cash;
             document.getElementById('stmt_farm').value = stmt_farm;
