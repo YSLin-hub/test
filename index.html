@@ -85,7 +85,7 @@
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                         <input type="text" id="searchInput" oninput="searchAndScrollToProduct()" placeholder="搜尋品項名稱..." class="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-blue-500">
                     </div>
-                    <button onclick="generateOrderSummary()" class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-xs whitespace-nowrap">
+                    <button onclick="handleGenerateOrderSummary()" class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-xs whitespace-nowrap">
                         <i class="fas fa-shopping-cart text-xs"></i> 叫貨
                     </button>
                 </div>
@@ -103,14 +103,20 @@
                         </button>
                     </div>
                     <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
-<!-- 叫貨清單 Modal 底部按鈕區 -->
-<div class="modal-footer flex justify-between items-center mt-4" style="padding: 15px; text-align: right; border-top: 1px solid #ddd;">
-    <div>
-        <button onclick="copyOrderText()" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">複製文字</button>
-        <button onclick="shareOrderLine()" style="padding: 8px 16px; background-color: #06C755; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">傳送到 Line</button>
-    </div>
-    <button onclick="closeOrderModal()" style="padding: 8px 16px; background-color: #ccc; color: black; border: none; border-radius: 4px; cursor: pointer;">關閉</button>
-</div>
+                    <!-- 叫貨清單 Modal 底部按鈕區 -->
+                    <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <div class="flex gap-2">
+                            <button onclick="copyOrderText()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                                <i class="fas fa-copy"></i> 複製文字
+                            </button>
+                            <button onclick="shareOrderLine()" class="px-3.5 py-2 bg-[#06C755] hover:bg-[#05b54d] text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                                <i class="fas fa-share-alt"></i> 分享LINE
+                            </button>
+                        </div>
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
+                            關閉
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -358,9 +364,14 @@
                 </div>
                 <div id="accSummaryModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
                 <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-                  <button onclick="exportAccSummaryImage()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
-                      <i class="fas fa-camera"></i> 輸出圖片
-                  </button>
+                  <div class="flex gap-2">
+                      <button onclick="exportAccSummaryImage()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                          <i class="fas fa-camera"></i> 輸出圖片
+                      </button>
+                      <button onclick="shareAccSummaryLineImage()" class="px-3.5 py-2 bg-[#06C755] hover:bg-[#05b54d] text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                          <i class="fas fa-share-alt"></i> 分享LINE
+                      </button>
+                  </div>
                   <button onclick="closeAccSummaryModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
                       關閉
                   </button>
@@ -1205,8 +1216,8 @@ function loadAccountingData() {
             document.getElementById('accSummaryModal').classList.remove('hidden');
         }
 
-        function exportAccSummaryImage() {
-            showToast('正在產生完整圖片，請稍候...');
+        function exportAccSummaryImage(action = 'download') {
+            showToast(action === 'share' ? '正在產生分享圖片，請稍候...' : '正在產生完整圖片，請稍候...');
 
             const dateVal = document.getElementById('accTargetDate').value || 'acc';
             
@@ -1325,22 +1336,24 @@ function loadAccountingData() {
 
                     if (canvas.toBlob) {
                         canvas.toBlob(blob => {
-                            const url = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = filename;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            setTimeout(() => URL.revokeObjectURL(url), 1000);
-                            showToast('圖片已成功下載！');
+                            if (!blob) {
+                                showToast('產生圖片失敗，請稍後再試');
+                                return;
+                            }
+
+                            if (action === 'share') {
+                                shareImageFile(blob, filename, `${dateVal} 帳務總覽`);
+                            } else {
+                                downloadBlob(blob, filename);
+                                showToast('圖片已成功下載！');
+                            }
                         }, 'image/png');
                     } else {
                         const link = document.createElement('a');
                         link.download = filename;
                         link.href = canvas.toDataURL('image/png');
                         link.click();
-                        showToast('圖片已成功下載！');
+                        showToast(action === 'share' ? '此瀏覽器不支援直接分享圖片，已改為下載圖片' : '圖片已成功下載！');
                     }
                 }).catch(err => {
                     console.error('產生圖片失敗:', err);
@@ -1350,6 +1363,48 @@ function loadAccountingData() {
                     showToast('產生圖片失敗，請稍後再試');
                 });
             }, 300);
+        }
+
+        function shareAccSummaryLineImage() {
+            exportAccSummaryImage('share');
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        async function shareImageFile(blob, filename, title) {
+            const file = new File([blob], filename, { type: 'image/png' });
+            const shareData = {
+                files: [file],
+                title,
+                text: title
+            };
+
+            if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+                try {
+                    await navigator.share(shareData);
+                    showToast('已開啟分享，可選擇 LINE 傳送');
+                } catch (err) {
+                    if (err && err.name === 'AbortError') {
+                        showToast('已取消分享');
+                    } else {
+                        console.error('分享圖片失敗，改為下載:', err);
+                        downloadBlob(blob, filename);
+                        showToast('分享失敗，已改為下載圖片');
+                    }
+                }
+            } else {
+                downloadBlob(blob, filename);
+                showToast('此裝置不支援直接分享圖片，已改為下載圖片');
+            }
         }
 
         function closeAccSummaryModal() {
@@ -1388,7 +1443,7 @@ function loadAccountingData() {
     });
 
     // 利用 Firebase Realtime Database 的 .update() 將最新庫存叫貨量寫入對應日期節點
-    db.ref('logs/' + dateVal).update(updates).then(() => {
+    return db.ref('logs/' + dateVal).update(updates).then(() => {
         updateSyncStatus(true);
     });
 }
@@ -1751,6 +1806,19 @@ function loadAccountingData() {
             if (modal) modal.classList.add('hidden');
         }
 
+        function handleGenerateOrderSummary() {
+            showToast('正在儲存叫貨資料...');
+            Promise.resolve(collectAndUpload())
+                .then(() => {
+                    generateOrderSummary();
+                })
+                .catch(err => {
+                    console.error('叫貨前儲存失敗:', err);
+                    showToast('儲存失敗，仍顯示目前畫面資料');
+                    generateOrderSummary();
+                });
+        }
+
         function generateOrderSummary() {
             const container = document.getElementById('orderModalContent');
             if (!container) return;
@@ -1892,17 +1960,23 @@ function copyOrderText() {
 
 
 function buildOrderText(fallbackText = '') {
+    const dateVal = document.getElementById('targetDate').value || getTodayString();
+    const footerLink = 'https://yslin-hub.github.io/test/';
+
     if (Array.isArray(currentOrderSummaryData) && currentOrderSummaryData.length > 0) {
-        return currentOrderSummaryData.map(group => {
+        const groupsText = currentOrderSummaryData.map(group => {
             const lines = [`📌 ${group.supplierName}`];
             group.items.forEach(item => {
-                lines.push(`${item.name} 目前: ${formatStockNumber(item.current)}（最低: ${getMinStockLabel(item.baseMin, item.min, item.multiplier)}）`);
+                lines.push(`${item.name} 目前: ${formatStockNumber(item.current)}`);
             });
             return lines.join('\n');
         }).join('\n\n');
+
+        return `${dateVal} 叫貨清單\n\n${groupsText}\n\n庫存系統連結：${footerLink}`;
     }
 
-    return formatOrderText(fallbackText);
+    const fallbackOrderText = formatOrderText(fallbackText);
+    return `${dateVal} 叫貨清單\n\n${fallbackOrderText}\n\n庫存系統連結：${footerLink}`;
 }
 
 // 輔助函式：將文字轉換成指定格式（廠商之間多空一行）
