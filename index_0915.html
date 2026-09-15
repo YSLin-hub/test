@@ -1747,10 +1747,15 @@ function loadAccountingData() {
             if (!container) return;
             container.innerHTML = '';
 
+            const dateVal = document.getElementById('targetDate').value;
+            const targetDateObj = new Date(dateVal + 'T00:00:00+08:00');
+            const dayOfWeek = targetDateObj.getDay();
             let hasItemsToOrder = false;
 
             if (typeof config !== 'undefined' && config.suppliers) {
-                config.suppliers.forEach(sup => {
+                const availableSuppliers = config.suppliers.filter(sup => sup.days && sup.days.includes(dayOfWeek));
+
+                availableSuppliers.forEach(sup => {
                     const lowStockProducts = [];
                     (sup.products || []).forEach(prod => {
                         let stockVal = null;
@@ -1763,9 +1768,15 @@ function loadAccountingData() {
 
                         if (stockVal !== null && stockVal !== undefined && stockVal.toString().trim() !== '') {
                             const currentNum = Number(stockVal);
-                            const minNum = Number(prod.minStock);
+                            const minNum = getAdjustedMinStock(prod, sup, dayOfWeek);
                             if (!isNaN(currentNum) && currentNum <= minNum) {
-                                lowStockProducts.push({ name: prod.name, current: currentNum, min: minNum });
+                                lowStockProducts.push({
+                                    name: prod.name,
+                                    current: currentNum,
+                                    min: minNum,
+                                    baseMin: Number(prod.minStock),
+                                    multiplier: getSupplierMultiplierForDay(sup, dayOfWeek)
+                                });
                             }
                         }
                     });
@@ -1780,7 +1791,7 @@ function loadAccountingData() {
                                 <span class="font-medium text-slate-700">${escapeHtml(p.name)}</span>
                                 <div class="text-right">
                                     <span class="text-rose-600 font-bold">目前: ${p.current}</span>
-                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${p.min})</span>
+                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${formatStockNumber(p.min)}${p.multiplier !== 1 ? ` = ${formatStockNumber(p.baseMin)} x ${formatStockNumber(p.multiplier)}` : ''})</span>
                                 </div>
                             </div>
                         `).join('');
