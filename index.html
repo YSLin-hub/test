@@ -458,6 +458,24 @@
                         <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="0" class="mb-1">日</label>
                     </div>
                 </div>
+                <div class="space-y-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">特定星期倍率</label>
+                        <div class="grid grid-cols-7 gap-1" id="modalMultiplierWeekdays">
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="1" class="mb-1">一</label>
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="2" class="mb-1">二</label>
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="3" class="mb-1">三</label>
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="4" class="mb-1">四</label>
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="5" class="mb-1">五</label>
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="6" class="mb-1">六</label>
+                            <label class="flex flex-col items-center p-2 bg-slate-50 rounded-lg cursor-pointer text-xs border border-slate-200"><input type="checkbox" value="0" class="mb-1">日</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">倍率數字</label>
+                        <input type="number" id="modalWeekdayMultiplier" inputmode="decimal" step="any" min="0" placeholder="例：1.5" class="w-full px-3 py-2 text-sm bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
                 <div>
                     <div class="flex justify-between items-center mb-2">
                         <label class="block text-xs font-semibold text-slate-600">商品清單與最低庫存</label>
@@ -543,6 +561,7 @@
                 id: 'sup_a',
                 name: 'A 廠商',
                 days: [1, 3, 5],
+                weekdayMultiplier: { days: [], multiplier: 1 },
                 products: [
                     { id: 'p_a1', name: '商品 A1', minStock: 5 },
                     { id: 'p_a2', name: '商品 A2', minStock: 5 }
@@ -705,6 +724,26 @@ function setupDatabaseListeners() {
             }, 2000);
         }
 
+        function getSupplierMultiplierForDay(supplier, dayOfWeek) {
+            const rule = supplier && supplier.weekdayMultiplier ? supplier.weekdayMultiplier : null;
+            if (!rule || !Array.isArray(rule.days) || !rule.days.includes(dayOfWeek)) return 1;
+
+            const multiplier = Number(rule.multiplier);
+            return !isNaN(multiplier) && multiplier > 0 ? multiplier : 1;
+        }
+
+        function getAdjustedMinStock(product, supplier, dayOfWeek) {
+            const baseMinStock = Number(product && product.minStock !== undefined ? product.minStock : 0);
+            const multiplier = getSupplierMultiplierForDay(supplier, dayOfWeek);
+            return baseMinStock * multiplier;
+        }
+
+        function formatStockNumber(value) {
+            const num = Number(value);
+            if (isNaN(num)) return value;
+            return Number.isInteger(num) ? String(num) : String(Number(num.toFixed(2)));
+        }
+
         function loadDateData() {
     const dateVal = document.getElementById('targetDate').value;
 
@@ -808,20 +847,25 @@ function setupDatabaseListeners() {
                 let productsHtml = '';
                 (sup.products || []).forEach(prod => {
                     const val = currentDayLogs[prod.id] !== undefined ? currentDayLogs[prod.id] : '';
-                    const isWarn = val !== '' && !isNaN(val) && Number(val) <= prod.minStock;
+                    const adjustedMinStock = getAdjustedMinStock(prod, sup, dayOfWeek);
+                    const multiplier = getSupplierMultiplierForDay(sup, dayOfWeek);
+                    const minStockText = multiplier !== 1
+                        ? `${formatStockNumber(adjustedMinStock)}（${formatStockNumber(prod.minStock)} x ${formatStockNumber(multiplier)}）`
+                        : formatStockNumber(prod.minStock);
+                    const isWarn = val !== '' && !isNaN(val) && Number(val) <= adjustedMinStock;
 
                     productsHtml += `
                         <div class="product-item flex items-center justify-between p-3 border-b border-slate-50 last:border-none transition-colors duration-300" data-prod-name="${escapeHtml(prod.name)}">
                             <div>
                                 <div class="prod-title text-sm font-medium text-slate-700">${escapeHtml(prod.name)}</div>
-                                <div class="text-[10px] text-slate-400">最低庫存: ${prod.minStock}</div>
+                                <div class="text-[10px] text-slate-400">最低庫存: ${minStockText}</div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <input type="number" 
                                     inputmode="decimal" 
                                     step="any"
                                     data-prod-id="${prod.id}"
-                                    data-min-stock="${prod.minStock}"
+                                    data-min-stock="${adjustedMinStock}"
                                     value="${val}" 
                                     ${isReadOnly ? 'disabled' : ''} 
                                     oninput="onInputStock(this)"
@@ -1478,12 +1522,19 @@ function loadAccountingData() {
                 const card = document.createElement('div');
                 card.className = 'bg-white p-3.5 rounded-xl shadow-sm border border-slate-100';
                 const daysStr = (sup.days || []).map(d => dayNames[d]).join('、');
+                const multiplierRule = sup.weekdayMultiplier || {};
+                const multiplierDaysStr = Array.isArray(multiplierRule.days) ? multiplierRule.days.map(d => dayNames[d]).join('、') : '';
+                const multiplier = Number(multiplierRule.multiplier);
+                const multiplierHtml = multiplierDaysStr && !isNaN(multiplier) && multiplier > 0
+                    ? `<div class="text-xs text-amber-600 mt-0.5"><i class="fas fa-chart-line mr-1"></i>每週 ${multiplierDaysStr} 最低庫存 x ${formatStockNumber(multiplier)}</div>`
+                    : '';
 
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-2">
                         <div>
                             <div class="font-bold text-sm text-slate-800">${escapeHtml(sup.name)}</div>
                             <div class="text-xs text-blue-600 mt-0.5"><i class="far fa-calendar-alt mr-1"></i>每週 ${daysStr} 叫貨</div>
+                            ${multiplierHtml}
                         </div>
                         <div class="flex items-center gap-1">
                             <button onclick="moveSupplier(${idx}, -1)" class="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-20" ${idx === 0 ? 'disabled' : ''} title="上移">
@@ -1528,6 +1579,9 @@ function loadAccountingData() {
             
             const checkboxes = document.querySelectorAll('#modalWeekdays input[type="checkbox"]');
             checkboxes.forEach(cb => cb.checked = false);
+            const multiplierCheckboxes = document.querySelectorAll('#modalMultiplierWeekdays input[type="checkbox"]');
+            multiplierCheckboxes.forEach(cb => cb.checked = false);
+            document.getElementById('modalWeekdayMultiplier').value = '';
             container.innerHTML = '';
 
             if (supplierId) {
@@ -1539,6 +1593,13 @@ function loadAccountingData() {
                     checkboxes.forEach(cb => {
                         if (sup.days && sup.days.includes(Number(cb.value))) cb.checked = true;
                     });
+                    const multiplierRule = sup.weekdayMultiplier || {};
+                    multiplierCheckboxes.forEach(cb => {
+                        if (Array.isArray(multiplierRule.days) && multiplierRule.days.includes(Number(cb.value))) cb.checked = true;
+                    });
+                    if (multiplierRule.multiplier !== undefined && multiplierRule.multiplier !== null) {
+                        document.getElementById('modalWeekdayMultiplier').value = multiplierRule.multiplier;
+                    }
                     (sup.products || []).forEach(p => addModalProductRow(p.name, p.minStock, p.id));
                 }
             } else {
@@ -1594,6 +1655,19 @@ function loadAccountingData() {
             document.querySelectorAll('#modalWeekdays input[type="checkbox"]:checked').forEach(cb => days.push(Number(cb.value)));
             if (days.length === 0) { alert('請至少選擇一天可叫貨星期'); return; }
 
+            const multiplierDays = [];
+            document.querySelectorAll('#modalMultiplierWeekdays input[type="checkbox"]:checked').forEach(cb => multiplierDays.push(Number(cb.value)));
+            const multiplierInput = document.getElementById('modalWeekdayMultiplier').value;
+            const multiplierValue = multiplierInput !== '' ? Number(multiplierInput) : 1;
+            if (multiplierDays.length > 0 && (isNaN(multiplierValue) || multiplierValue <= 0)) {
+                alert('請輸入大於 0 的倍率數字');
+                return;
+            }
+            const weekdayMultiplier = {
+                days: multiplierDays,
+                multiplier: multiplierValue
+            };
+
             const products = [];
             const rows = document.querySelectorAll('#modalProductsContainer .product-row');
             rows.forEach((row, idx) => {
@@ -1614,9 +1688,9 @@ function loadAccountingData() {
 
             if (id) {
                 const index = config.suppliers.findIndex(s => s.id === id);
-                if (index !== -1) config.suppliers[index] = { id, name, days, products };
+                if (index !== -1) config.suppliers[index] = { ...config.suppliers[index], id, name, days, weekdayMultiplier, products };
             } else {
-                config.suppliers.push({ id: 'sup_' + Date.now(), name, days, products });
+                config.suppliers.push({ id: 'sup_' + Date.now(), name, days, weekdayMultiplier, products });
             }
 
             db.ref('config').set(config).then(() => {
@@ -1673,10 +1747,15 @@ function loadAccountingData() {
             if (!container) return;
             container.innerHTML = '';
 
+            const dateVal = document.getElementById('targetDate').value;
+            const targetDateObj = new Date(dateVal + 'T00:00:00+08:00');
+            const dayOfWeek = targetDateObj.getDay();
             let hasItemsToOrder = false;
 
             if (typeof config !== 'undefined' && config.suppliers) {
-                config.suppliers.forEach(sup => {
+                const availableSuppliers = config.suppliers.filter(sup => sup.days && sup.days.includes(dayOfWeek));
+
+                availableSuppliers.forEach(sup => {
                     const lowStockProducts = [];
                     (sup.products || []).forEach(prod => {
                         let stockVal = null;
@@ -1689,9 +1768,15 @@ function loadAccountingData() {
 
                         if (stockVal !== null && stockVal !== undefined && stockVal.toString().trim() !== '') {
                             const currentNum = Number(stockVal);
-                            const minNum = Number(prod.minStock);
+                            const minNum = getAdjustedMinStock(prod, sup, dayOfWeek);
                             if (!isNaN(currentNum) && currentNum <= minNum) {
-                                lowStockProducts.push({ name: prod.name, current: currentNum, min: minNum });
+                                lowStockProducts.push({
+                                    name: prod.name,
+                                    current: currentNum,
+                                    min: minNum,
+                                    baseMin: Number(prod.minStock),
+                                    multiplier: getSupplierMultiplierForDay(sup, dayOfWeek)
+                                });
                             }
                         }
                     });
@@ -1706,7 +1791,7 @@ function loadAccountingData() {
                                 <span class="font-medium text-slate-700">${escapeHtml(p.name)}</span>
                                 <div class="text-right">
                                     <span class="text-rose-600 font-bold">目前: ${p.current}</span>
-                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${p.min})</span>
+                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${formatStockNumber(p.min)}${p.multiplier !== 1 ? ` = ${formatStockNumber(p.baseMin)} x ${formatStockNumber(p.multiplier)}` : ''})</span>
                                 </div>
                             </div>
                         `).join('');
