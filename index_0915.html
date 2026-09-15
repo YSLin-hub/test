@@ -85,7 +85,7 @@
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                         <input type="text" id="searchInput" oninput="searchAndScrollToProduct()" placeholder="搜尋品項名稱..." class="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-blue-500">
                     </div>
-                    <button onclick="generateOrderSummary()" class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-xs whitespace-nowrap">
+                    <button onclick="handleGenerateOrderSummary()" class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-xs whitespace-nowrap">
                         <i class="fas fa-shopping-cart text-xs"></i> 叫貨
                     </button>
                 </div>
@@ -103,14 +103,20 @@
                         </button>
                     </div>
                     <div id="orderModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
-<!-- 叫貨清單 Modal 底部按鈕區 -->
-<div class="modal-footer flex justify-between items-center mt-4" style="padding: 15px; text-align: right; border-top: 1px solid #ddd;">
-    <div>
-        <button onclick="copyOrderText()" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">複製文字</button>
-        <button onclick="shareOrderLine()" style="padding: 8px 16px; background-color: #06C755; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">傳送到 Line</button>
-    </div>
-    <button onclick="closeOrderModal()" style="padding: 8px 16px; background-color: #ccc; color: black; border: none; border-radius: 4px; cursor: pointer;">關閉</button>
-</div>
+                    <!-- 叫貨清單 Modal 底部按鈕區 -->
+                    <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <div class="flex gap-2">
+                            <button onclick="copyOrderText()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                                <i class="fas fa-copy"></i> 複製文字
+                            </button>
+                            <button onclick="shareOrderLine()" class="px-3.5 py-2 bg-[#06C755] hover:bg-[#05b54d] text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                                <i class="fas fa-share-alt"></i> 分享LINE
+                            </button>
+                        </div>
+                        <button onclick="closeOrderModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
+                            關閉
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -357,14 +363,62 @@
                     </button>
                 </div>
                 <div id="accSummaryModalContent" class="p-4 overflow-y-auto space-y-4 flex-1 text-xs"></div>
-                <div class="p-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-                  <button onclick="exportAccSummaryImage()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
-                      <i class="fas fa-camera"></i> 輸出圖片
-                  </button>
-                  <button onclick="closeAccSummaryModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
-                      關閉
-                  </button>
+                <div class="p-3 border-t border-slate-100 bg-slate-50 space-y-2">
+                  <div class="grid grid-cols-2 gap-2">
+                      <button onclick="exportAccSummaryImage()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                          <i class="fas fa-camera"></i> 輸出圖片
+                      </button>
+                      <button onclick="createAccountingReport()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition text-xs flex items-center justify-center gap-1.5 shadow-xs">
+                          <i class="fas fa-file-upload"></i> 產出報告
+                      </button>
+                  </div>
+                  <div class="grid grid-cols-3 gap-2">
+                      <button onclick="shareAccSummaryLineImage()" class="px-3.5 py-2 bg-[#06C755] hover:bg-[#05b54d] text-white rounded-xl font-medium transition text-xs flex items-center gap-1.5 shadow-xs">
+                          <i class="fas fa-share-alt"></i> 分享LINE
+                      </button>
+                      <button onclick="openReportHistoryModal()" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-medium transition text-xs flex items-center justify-center gap-1.5 shadow-xs">
+                          <i class="fas fa-history"></i> 歷史報告
+                      </button>
+                      <button onclick="closeAccSummaryModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition text-xs">
+                          關閉
+                      </button>
+                  </div>
               </div>
+            </div>
+        </div>
+
+        <!-- 帳務報告歷史 Modal -->
+        <div id="reportHistoryModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-end sm:items-center justify-center z-50 hidden p-0 sm:p-4">
+            <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-100 overflow-hidden flex flex-col max-h-[88vh]">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-800 text-white">
+                    <div>
+                        <h3 class="font-bold text-sm flex items-center gap-2">
+                            <i class="fas fa-history text-amber-400"></i> 歷史報告
+                        </h3>
+                        <p class="text-[11px] text-slate-300 mt-0.5">僅顯示一年內的帳務報告</p>
+                    </div>
+                    <button onclick="closeReportHistoryModal()" class="text-slate-300 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="reportHistoryList" class="p-4 overflow-y-auto space-y-3 flex-1 text-xs bg-slate-50"></div>
+            </div>
+        </div>
+
+        <!-- 帳務報告查看 Modal -->
+        <div id="reportViewerModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-800 text-white">
+                    <h3 class="font-bold text-sm flex items-center gap-2">
+                        <i class="fas fa-file-image text-amber-400"></i> <span id="reportViewerTitle">帳務報告</span>
+                    </h3>
+                    <button onclick="closeReportViewerModal()" class="text-slate-300 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-3 bg-slate-100 overflow-y-auto">
+                    <img id="reportViewerImage" alt="帳務報告圖片" class="w-full rounded-xl shadow-sm bg-white">
+                </div>
             </div>
         </div>
 
@@ -549,8 +603,10 @@
         let config = { suppliers: [], operators: [] };
         let currentDayLogs = {};
         let currentAccData = {};
+        let currentOrderSummaryData = [];
         let currentTab = 'today';
 		let isForceEditable = false;
+        let hasOpenedSharedReport = false;
 
 
         // 儲存當前 logs 監聽器 Ref，切換日期時需先取消監聽
@@ -581,6 +637,11 @@
             if (user && !isDbInitialized) {
                 isDbInitialized = true;
                 setupDatabaseListeners();
+            }
+
+            if (user && !hasOpenedSharedReport) {
+                hasOpenedSharedReport = true;
+                openSharedReportFromUrl();
             }
         });
 
@@ -744,6 +805,16 @@ function setupDatabaseListeners() {
             return Number.isInteger(num) ? String(num) : String(Number(num.toFixed(2)));
         }
 
+        function getMinStockLabel(baseMinStock, adjustedMinStock, multiplier) {
+            const adjustedLabel = formatStockNumber(adjustedMinStock);
+            if (Number(multiplier) === 1) return adjustedLabel;
+            return `${adjustedLabel}（${formatStockNumber(baseMinStock)} x ${formatStockNumber(multiplier)}）`;
+        }
+
+        function findStockInputByProductId(productId) {
+            return Array.from(document.querySelectorAll('.stock-input')).find(input => input.dataset.prodId === String(productId));
+        }
+
         function loadDateData() {
     const dateVal = document.getElementById('targetDate').value;
 
@@ -849,9 +920,7 @@ function setupDatabaseListeners() {
                     const val = currentDayLogs[prod.id] !== undefined ? currentDayLogs[prod.id] : '';
                     const adjustedMinStock = getAdjustedMinStock(prod, sup, dayOfWeek);
                     const multiplier = getSupplierMultiplierForDay(sup, dayOfWeek);
-                    const minStockText = multiplier !== 1
-                        ? `${formatStockNumber(adjustedMinStock)}（${formatStockNumber(prod.minStock)} x ${formatStockNumber(multiplier)}）`
-                        : formatStockNumber(prod.minStock);
+                    const minStockText = getMinStockLabel(prod.minStock, adjustedMinStock, multiplier);
                     const isWarn = val !== '' && !isNaN(val) && Number(val) <= adjustedMinStock;
 
                     productsHtml += `
@@ -1196,8 +1265,13 @@ function loadAccountingData() {
             document.getElementById('accSummaryModal').classList.remove('hidden');
         }
 
-        function exportAccSummaryImage() {
-            showToast('正在產生完整圖片，請稍候...');
+        function exportAccSummaryImage(action = 'download') {
+            const statusText = action === 'share'
+                ? '正在產生分享圖片，請稍候...'
+                : action === 'report'
+                    ? '正在產出報告，請稍候...'
+                    : '正在產生完整圖片，請稍候...';
+            showToast(statusText);
 
             const dateVal = document.getElementById('accTargetDate').value || 'acc';
             
@@ -1314,24 +1388,31 @@ function loadAccountingData() {
                     }
                     const filename = `${dateVal}-帳務總覽.png`;
 
+                    if (action === 'report') {
+                        saveAccountingReportBase64(canvas.toDataURL('image/png'), dateVal);
+                        return;
+                    }
+
                     if (canvas.toBlob) {
                         canvas.toBlob(blob => {
-                            const url = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = filename;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            setTimeout(() => URL.revokeObjectURL(url), 1000);
-                            showToast('圖片已成功下載！');
+                            if (!blob) {
+                                showToast('產生圖片失敗，請稍後再試');
+                                return;
+                            }
+
+                            if (action === 'share') {
+                                shareImageFile(blob, filename, `${dateVal} 帳務總覽`);
+                            } else {
+                                downloadBlob(blob, filename);
+                                showToast('圖片已成功下載！');
+                            }
                         }, 'image/png');
                     } else {
                         const link = document.createElement('a');
                         link.download = filename;
                         link.href = canvas.toDataURL('image/png');
                         link.click();
-                        showToast('圖片已成功下載！');
+                        showToast(action === 'share' ? '此瀏覽器不支援直接分享圖片，已改為下載圖片' : '圖片已成功下載！');
                     }
                 }).catch(err => {
                     console.error('產生圖片失敗:', err);
@@ -1341,6 +1422,285 @@ function loadAccountingData() {
                     showToast('產生圖片失敗，請稍後再試');
                 });
             }, 300);
+        }
+
+        function shareAccSummaryLineImage() {
+            exportAccSummaryImage('share');
+        }
+
+        function createAccountingReport() {
+            exportAccSummaryImage('report');
+        }
+
+        function saveAccountingReportBase64(imageBase64, dateVal) {
+            const reportId = 'report_' + Date.now();
+            const fileName = `${dateVal}-帳務總覽-${reportId}.png`;
+            const createdAt = Date.now();
+            const expiresDate = new Date(createdAt);
+            expiresDate.setFullYear(expiresDate.getFullYear() + 1);
+
+            const record = {
+                date: dateVal,
+                fileName,
+                imageBase64,
+                createdAt,
+                expiresAt: expiresDate.getTime()
+            };
+
+            db.ref(`accountingReports/${dateVal}/${reportId}`).set(record)
+                .then(() => {
+                    showToast('報告已產出並儲存一年');
+                    openReportHistoryModal();
+                })
+                .catch(err => {
+                    console.error('儲存 Base64 報告失敗:', err);
+                    showToast('產出報告失敗，請稍後再試');
+                });
+        }
+
+        function openReportHistoryModal() {
+            const modal = document.getElementById('reportHistoryModal');
+            if (modal) modal.classList.remove('hidden');
+            renderReportHistoryList();
+        }
+
+        function closeReportHistoryModal() {
+            const modal = document.getElementById('reportHistoryModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function renderReportHistoryList() {
+            const container = document.getElementById('reportHistoryList');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div class="text-center py-8 text-slate-400">
+                    <i class="fas fa-spinner fa-spin text-xl mb-2 block"></i>
+                    正在載入歷史報告...
+                </div>
+            `;
+
+            db.ref('accountingReports').once('value')
+                .then(snapshot => {
+                    const allReports = [];
+                    const expiredUpdates = {};
+                    const data = snapshot.val() || {};
+                    const now = Date.now();
+                    const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
+
+                    Object.keys(data).forEach(dateKey => {
+                        const dateReports = data[dateKey] || {};
+                        Object.keys(dateReports).forEach(reportId => {
+                            const report = { id: reportId, ...dateReports[reportId] };
+                            const expiresAt = Number(report.expiresAt || 0);
+                            const createdAt = Number(report.createdAt || 0);
+                            const isExpired = expiresAt ? expiresAt < now : createdAt && createdAt < oneYearAgo;
+
+                            if (isExpired) {
+                                expiredUpdates[`accountingReports/${dateKey}/${reportId}`] = null;
+                                return;
+                            }
+
+                            if (report.imageBase64 && (!createdAt || createdAt >= oneYearAgo || expiresAt >= now)) {
+                                allReports.push(report);
+                            }
+                        });
+                    });
+
+                    if (Object.keys(expiredUpdates).length > 0) {
+                        db.ref().update(expiredUpdates).catch(err => {
+                            console.error('清理過期報告失敗:', err);
+                        });
+                    }
+
+                    allReports.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+
+                    if (allReports.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center py-10 text-slate-400">
+                                <i class="fas fa-file-image text-3xl mb-2 block"></i>
+                                尚無一年內歷史報告
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = allReports.map(report => renderReportHistoryItem(report)).join('');
+                })
+                .catch(err => {
+                    console.error('載入歷史報告失敗:', err);
+                    container.innerHTML = `
+                        <div class="text-center py-10 text-rose-500">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2 block"></i>
+                            歷史報告載入失敗
+                        </div>
+                    `;
+                });
+        }
+
+        function renderReportHistoryItem(report) {
+            const safeDate = escapeHtml(report.date || '未命名日期');
+            const safeFileName = escapeHtml(report.fileName || '帳務總覽報告');
+            const createdText = formatReportCreatedAt(report.createdAt);
+            const expiresText = formatReportCreatedAt(report.expiresAt);
+            const reportUrl = getReportViewUrl(report.date, report.id);
+
+            return `
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                    <div class="flex gap-3">
+                        <button type="button" onclick="viewAccountingReportById('${report.date}', '${report.id}')" class="w-16 h-20 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden shrink-0">
+                            <img src="${report.imageBase64}" alt="${safeFileName}" class="w-full h-full object-cover">
+                        </button>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-sm text-slate-800">${safeDate}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">帳務總覽報告</div>
+                            <div class="text-[11px] text-slate-400 mt-1">產生時間 ${createdText}</div>
+                            <div class="text-[11px] text-slate-400">保留至 ${expiresText}</div>
+                            <div class="grid grid-cols-3 gap-2 mt-3">
+                                <button onclick="copyReportLink('${report.date}', '${report.id}')" class="px-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition text-[11px] flex items-center justify-center gap-1">
+                                    <i class="fas fa-link"></i> 複製連結
+                                </button>
+                                <button onclick="shareReportLine('${report.date}', '${report.id}')" class="px-2 py-2 bg-[#06C755] hover:bg-[#05b54d] text-white rounded-lg font-medium transition text-[11px] flex items-center justify-center gap-1">
+                                    <i class="fas fa-share-alt"></i> LINE
+                                </button>
+                                <button onclick="viewAccountingReportById('${report.date}', '${report.id}')" class="px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition text-[11px] flex items-center justify-center gap-1">
+                                    <i class="fas fa-eye"></i> 查看
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" value="${escapeHtml(reportUrl)}">
+                </div>
+            `;
+        }
+
+        function getReportViewUrl(dateVal, reportId) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('reportDate', dateVal);
+            url.searchParams.set('reportId', reportId);
+            return url.toString();
+        }
+
+        function formatReportCreatedAt(value) {
+            const timestamp = Number(value || 0);
+            if (!timestamp) return '未知';
+            const d = new Date(timestamp);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hour = String(d.getHours()).padStart(2, '0');
+            const minute = String(d.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hour}:${minute}`;
+        }
+
+        function copyReportLink(dateVal, reportId) {
+            const url = getReportViewUrl(dateVal, reportId);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showToast('報告連結已複製');
+                }).catch(() => fallbackCopyText(url));
+            } else {
+                fallbackCopyText(url);
+            }
+        }
+
+        function shareReportLine(dateVal, reportId) {
+            const url = getReportViewUrl(dateVal, reportId);
+            const text = `${dateVal} 帳務總覽報告\n${url}`;
+            const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+            window.open(lineUrl, '_blank');
+        }
+
+        function viewAccountingReportById(dateVal, reportId) {
+            db.ref(`accountingReports/${dateVal}/${reportId}`).once('value')
+                .then(snapshot => {
+                    const report = snapshot.val();
+                    if (!report || !report.imageBase64) {
+                        showToast('找不到報告或報告已過期');
+                        return;
+                    }
+                    showReportViewer(report);
+                })
+                .catch(err => {
+                    console.error('讀取報告失敗:', err);
+                    showToast('讀取報告失敗');
+                });
+        }
+
+        function showReportViewer(report) {
+            document.getElementById('reportViewerTitle').innerText = `${report.date || ''} 帳務報告`;
+            document.getElementById('reportViewerImage').src = report.imageBase64;
+            document.getElementById('reportViewerModal').classList.remove('hidden');
+        }
+
+        function closeReportViewerModal() {
+            document.getElementById('reportViewerModal').classList.add('hidden');
+            document.getElementById('reportViewerImage').src = '';
+        }
+
+        function openSharedReportFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const reportDate = params.get('reportDate');
+            const reportId = params.get('reportId');
+            if (reportDate && reportId) {
+                viewAccountingReportById(reportDate, reportId);
+            }
+        }
+
+        function fallbackCopyText(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('文字已複製');
+            } catch (err) {
+                console.error('備用複製失敗:', err);
+                alert('複製失敗，請手動複製文字');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        async function shareImageFile(blob, filename, title) {
+            const file = new File([blob], filename, { type: 'image/png' });
+            const shareData = {
+                files: [file],
+                title,
+                text: title
+            };
+
+            if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+                try {
+                    await navigator.share(shareData);
+                    showToast('已開啟分享，可選擇 LINE 傳送');
+                } catch (err) {
+                    if (err && err.name === 'AbortError') {
+                        showToast('已取消分享');
+                    } else {
+                        console.error('分享圖片失敗，改為下載:', err);
+                        downloadBlob(blob, filename);
+                        showToast('分享失敗，已改為下載圖片');
+                    }
+                }
+            } else {
+                downloadBlob(blob, filename);
+                showToast('此裝置不支援直接分享圖片，已改為下載圖片');
+            }
         }
 
         function closeAccSummaryModal() {
@@ -1379,7 +1739,7 @@ function loadAccountingData() {
     });
 
     // 利用 Firebase Realtime Database 的 .update() 將最新庫存叫貨量寫入對應日期節點
-    db.ref('logs/' + dateVal).update(updates).then(() => {
+    return db.ref('logs/' + dateVal).update(updates).then(() => {
         updateSyncStatus(true);
     });
 }
@@ -1742,10 +2102,24 @@ function loadAccountingData() {
             if (modal) modal.classList.add('hidden');
         }
 
+        function handleGenerateOrderSummary() {
+            showToast('正在儲存叫貨資料...');
+            Promise.resolve(collectAndUpload())
+                .then(() => {
+                    generateOrderSummary();
+                })
+                .catch(err => {
+                    console.error('叫貨前儲存失敗:', err);
+                    showToast('儲存失敗，仍顯示目前畫面資料');
+                    generateOrderSummary();
+                });
+        }
+
         function generateOrderSummary() {
             const container = document.getElementById('orderModalContent');
             if (!container) return;
             container.innerHTML = '';
+            currentOrderSummaryData = [];
 
             const dateVal = document.getElementById('targetDate').value;
             const targetDateObj = new Date(dateVal + 'T00:00:00+08:00');
@@ -1759,7 +2133,7 @@ function loadAccountingData() {
                     const lowStockProducts = [];
                     (sup.products || []).forEach(prod => {
                         let stockVal = null;
-                        const input = document.querySelector(`input[data-prod-id="${prod.id}"]`);
+                        const input = findStockInputByProductId(prod.id);
                         if (input && input.value !== '') {
                             stockVal = input.value;
                         } else if (typeof currentDayLogs !== 'undefined' && currentDayLogs[prod.id] !== undefined) {
@@ -1783,6 +2157,10 @@ function loadAccountingData() {
 
                     if (lowStockProducts.length > 0) {
                         hasItemsToOrder = true;
+                        currentOrderSummaryData.push({
+                            supplierName: sup.name,
+                            items: lowStockProducts
+                        });
                         const groupEl = document.createElement('div');
                         groupEl.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200/80 mb-3';
 
@@ -1791,7 +2169,7 @@ function loadAccountingData() {
                                 <span class="font-medium text-slate-700">${escapeHtml(p.name)}</span>
                                 <div class="text-right">
                                     <span class="text-rose-600 font-bold">目前: ${p.current}</span>
-                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${formatStockNumber(p.min)}${p.multiplier !== 1 ? ` = ${formatStockNumber(p.baseMin)} x ${formatStockNumber(p.multiplier)}` : ''})</span>
+                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${getMinStockLabel(p.baseMin, p.min, p.multiplier)})</span>
                                 </div>
                             </div>
                         `).join('');
@@ -1850,8 +2228,7 @@ function shareOrderLine() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
     
-    const rawText = container.innerText;
-    const formattedText = formatOrderText(rawText);
+    const formattedText = buildOrderText(container.innerText);
     
     // 透過 Line 通用分享網址帶入格式化後的文字
     const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(formattedText)}`;
@@ -1863,11 +2240,7 @@ function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
     
-    // 取得原始文字
-    const rawText = container.innerText;
-    
-    // 進行格式轉換
-    const formattedText = formatOrderText(rawText);
+    const formattedText = buildOrderText(container.innerText);
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(formattedText).then(() => {
@@ -1881,6 +2254,26 @@ function copyOrderText() {
     }
 }
 
+
+function buildOrderText(fallbackText = '') {
+    const dateVal = document.getElementById('targetDate').value || getTodayString();
+    const footerLink = 'https://yslin-hub.github.io/test/';
+
+    if (Array.isArray(currentOrderSummaryData) && currentOrderSummaryData.length > 0) {
+        const groupsText = currentOrderSummaryData.map(group => {
+            const lines = [`📌 ${group.supplierName}`];
+            group.items.forEach(item => {
+                lines.push(`${item.name} 目前: ${formatStockNumber(item.current)}`);
+            });
+            return lines.join('\n');
+        }).join('\n\n');
+
+        return `${dateVal} 叫貨清單\n\n${groupsText}\n\n庫存系統連結：${footerLink}`;
+    }
+
+    const fallbackOrderText = formatOrderText(fallbackText);
+    return `${dateVal} 叫貨清單\n\n${fallbackOrderText}\n\n庫存系統連結：${footerLink}`;
+}
 
 // 輔助函式：將文字轉換成指定格式（廠商之間多空一行）
 function formatOrderText(text) {
