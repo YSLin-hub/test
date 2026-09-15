@@ -549,6 +549,7 @@
         let config = { suppliers: [], operators: [] };
         let currentDayLogs = {};
         let currentAccData = {};
+        let currentOrderSummaryData = [];
         let currentTab = 'today';
 		let isForceEditable = false;
 
@@ -744,6 +745,16 @@ function setupDatabaseListeners() {
             return Number.isInteger(num) ? String(num) : String(Number(num.toFixed(2)));
         }
 
+        function getMinStockLabel(baseMinStock, adjustedMinStock, multiplier) {
+            const adjustedLabel = formatStockNumber(adjustedMinStock);
+            if (Number(multiplier) === 1) return adjustedLabel;
+            return `${adjustedLabel}（${formatStockNumber(baseMinStock)} x ${formatStockNumber(multiplier)}）`;
+        }
+
+        function findStockInputByProductId(productId) {
+            return Array.from(document.querySelectorAll('.stock-input')).find(input => input.dataset.prodId === String(productId));
+        }
+
         function loadDateData() {
     const dateVal = document.getElementById('targetDate').value;
 
@@ -849,9 +860,7 @@ function setupDatabaseListeners() {
                     const val = currentDayLogs[prod.id] !== undefined ? currentDayLogs[prod.id] : '';
                     const adjustedMinStock = getAdjustedMinStock(prod, sup, dayOfWeek);
                     const multiplier = getSupplierMultiplierForDay(sup, dayOfWeek);
-                    const minStockText = multiplier !== 1
-                        ? `${formatStockNumber(adjustedMinStock)}（${formatStockNumber(prod.minStock)} x ${formatStockNumber(multiplier)}）`
-                        : formatStockNumber(prod.minStock);
+                    const minStockText = getMinStockLabel(prod.minStock, adjustedMinStock, multiplier);
                     const isWarn = val !== '' && !isNaN(val) && Number(val) <= adjustedMinStock;
 
                     productsHtml += `
@@ -1746,6 +1755,7 @@ function loadAccountingData() {
             const container = document.getElementById('orderModalContent');
             if (!container) return;
             container.innerHTML = '';
+            currentOrderSummaryData = [];
 
             const dateVal = document.getElementById('targetDate').value;
             const targetDateObj = new Date(dateVal + 'T00:00:00+08:00');
@@ -1759,7 +1769,7 @@ function loadAccountingData() {
                     const lowStockProducts = [];
                     (sup.products || []).forEach(prod => {
                         let stockVal = null;
-                        const input = document.querySelector(`input[data-prod-id="${prod.id}"]`);
+                        const input = findStockInputByProductId(prod.id);
                         if (input && input.value !== '') {
                             stockVal = input.value;
                         } else if (typeof currentDayLogs !== 'undefined' && currentDayLogs[prod.id] !== undefined) {
@@ -1783,6 +1793,10 @@ function loadAccountingData() {
 
                     if (lowStockProducts.length > 0) {
                         hasItemsToOrder = true;
+                        currentOrderSummaryData.push({
+                            supplierName: sup.name,
+                            items: lowStockProducts
+                        });
                         const groupEl = document.createElement('div');
                         groupEl.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200/80 mb-3';
 
@@ -1791,7 +1805,7 @@ function loadAccountingData() {
                                 <span class="font-medium text-slate-700">${escapeHtml(p.name)}</span>
                                 <div class="text-right">
                                     <span class="text-rose-600 font-bold">目前: ${p.current}</span>
-                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${formatStockNumber(p.min)}${p.multiplier !== 1 ? ` = ${formatStockNumber(p.baseMin)} x ${formatStockNumber(p.multiplier)}` : ''})</span>
+                                    <span class="text-slate-400 text-[10px] ml-1">(最低: ${getMinStockLabel(p.baseMin, p.min, p.multiplier)})</span>
                                 </div>
                             </div>
                         `).join('');
@@ -1850,8 +1864,7 @@ function shareOrderLine() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
     
-    const rawText = container.innerText;
-    const formattedText = formatOrderText(rawText);
+    const formattedText = buildOrderText(container.innerText);
     
     // 透過 Line 通用分享網址帶入格式化後的文字
     const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(formattedText)}`;
@@ -1863,11 +1876,7 @@ function copyOrderText() {
     const container = document.getElementById('orderModalContent');
     if (!container) return;
     
-    // 取得原始文字
-    const rawText = container.innerText;
-    
-    // 進行格式轉換
-    const formattedText = formatOrderText(rawText);
+    const formattedText = buildOrderText(container.innerText);
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(formattedText).then(() => {
@@ -1881,6 +1890,20 @@ function copyOrderText() {
     }
 }
 
+
+function buildOrderText(fallbackText = '') {
+    if (Array.isArray(currentOrderSummaryData) && currentOrderSummaryData.length > 0) {
+        return currentOrderSummaryData.map(group => {
+            const lines = [`📌 ${group.supplierName}`];
+            group.items.forEach(item => {
+                lines.push(`${item.name} 目前: ${formatStockNumber(item.current)}（最低: ${getMinStockLabel(item.baseMin, item.min, item.multiplier)}）`);
+            });
+            return lines.join('\n');
+        }).join('\n\n');
+    }
+
+    return formatOrderText(fallbackText);
+}
 
 // 輔助函式：將文字轉換成指定格式（廠商之間多空一行）
 function formatOrderText(text) {
